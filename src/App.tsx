@@ -386,7 +386,7 @@ export default function App() {
         </div>
 
         {/* Content Box */}
-        <div className={`w-full min-h-[450px] rounded-[40px] border p-8 md:p-16 flex flex-col items-center justify-center relative overflow-hidden transition-all duration-500 ${
+        <div className={`w-full min-h-[400px] rounded-[40px] border p-8 md:p-16 flex flex-col items-center justify-center relative overflow-hidden transition-all duration-500 ${
           isDarkMode 
             ? 'border-white/5 bg-white/5 backdrop-blur-2xl shadow-[0_20px_50px_rgba(0,0,0,0.3)]' 
             : 'border-gray-200 bg-white shadow-[0_20px_50px_rgba(0,0,0,0.05)]'
