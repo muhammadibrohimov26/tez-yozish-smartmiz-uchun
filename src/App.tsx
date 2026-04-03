@@ -9,15 +9,46 @@ import { Sun, Moon, Volume2, VolumeX, RotateCcw, Trophy, AlertCircle, Keyboard, 
 
 // Uzbek words categorized by difficulty
 const WORDS_BY_DIFFICULTY = {
-  easy: [
-    "ona", "ilm", "baxt", "gul", "non", "suv", "aka", "uka", "opa", "ota", "bola", "yo'l", "uy", "ish", "oq", "ko'k", "tez", "past", "ko'z", "qo'l", "bosh", "tish", "til", "soch", "fan", "bog'"
-  ],
-  medium: [
-    "vatan", "maktab", "kitob", "ustoz", "quyosh", "osmon", "yulduz", "daryo", "daraxt", "shahar", "o'qish", "yozish", "ko'rish", "yaxshi", "yomon", "katta", "kichik", "issiq", "sovuq", "shirin", "qizil", "sariq", "pushti", "bugun", "hozir", "sekin", "yurak", "oyoq", "quloq", "burun", "davlat", "bayroq", "qonun", "huquq", "vazifa", "aloqa", "san'at", "sport"
-  ],
+ easy: [
+    "ona","smartmiz", "ilm", "baxt", "gul", "non", "suv", "aka", "uka", "opa", "ota", 
+    "bola", "yo'l", "uy", "ish", "oq", "ko'k", "tez", "past", "ko'z", "qo'l", 
+    "bosh", "tish", "til", "soch", "fan", "bog'", "yer", "oy", "kun", "tun", 
+    "qor", "muz", "tog'", "ko'l", "yel", "choy", "sut", "tuz", "asal", "osh", 
+    "non", "meva", "anor", "olma", "behi", "uzum", "shat", "xat", "qalam", "daftar", 
+    "kitob", "stol", "stul", "deraza", "eshik", "devor", "tom", "pol", "shahar", "qishloq",
+    "boy", "kam", "ko'p", "keng", "tor", "sog'", "yov", "yot", "yosh", "qari",
+    "yuz", "lab", "oyoq", "bel", "yur", "tur", "kel", "ket", "ayt", "yoz",
+    "o'qi", "ishla", "uxla", "tur", "ovqat", "suv", "non", "sariyog'", "qaymoq", "shakar"
+],
+ medium: [
+    "vatan", "smartmiz", "maktab", "kitob", "ustoz", "quyosh", "osmon", "yulduz", "daryo", 
+    "daraxt", "shahar", "o'qish", "yozish", "ko'rish", "yaxshi", "yomon", "katta", 
+    "kichik", "issiq", "sovuq", "shirin", "qizil", "sariq", "pushti", "bugun", 
+    "hozir", "sekin", "yurak", "oyoq", "quloq", "burun", "davlat", "bayroq", 
+    "qonun", "huquq", "vazifa", "aloqa", "san'at", "sport", "qalam", "daftar",
+    "xona", "bog'cha", "o'rmon", "bulut", "yomg'ir", "shamol", "tuman", "bahor",
+    "yozgi", "kuzgi", "qishki", "do'stlik", "hurmat", "shon-sharaf", "baxtli", "tinchlik",
+    "bilim", "mehnat", "rahmat", "kechirim", "sog'liq", "boylik", "donolik", "ozodlik",
+    "ertaga", "kecha", "har doim", "hech qachon", "ba'zan", "tezda", "darhol", "ehtiyot",
+    "ovqat", "meva", "sabzavot", "bozor", "do'kon", "mashina", "poyezd", "samolyot",
+    "qiziqarli", "chiroyli", "aqlli", "kuchli", "toza", "ozoda", "og'ir", "yengil"
+],
   hard: [
-    "mustaqillik", "erkinlik", "adolat", "kompyuter", "telefon", "internet", "dastur", "axborot", "texnika", "tinchlik", "qishloq", "gapirish", "eshitish", "yugurish", "sakrash", "o'ynash", "kulish", "achchiq", "jigarrang", "binafsha", "kulrang", "ertaga", "kecha", "doim", "hech qachon", "baland", "madhiya", "universitet", "shifoxona", "kutubxona", "tadbirkor", "o'qituvchi", "shifokor", "muhandis"
-  ]
+    "mustaqillik", "smartmiz","erkinlik", "adolat", "kompyuter", "telefon", "internet", 
+    "dastur", "axborot", "texnika", "tinchlik", "qishloq", "gapirish", 
+    "eshitish", "yugurish", "sakrash", "o'ynash", "kulish", "achchiq", 
+    "jigarrang", "binafsha", "kulrang", "ertaga", "kecha", "doim", 
+    "hech qachon", "baland", "madhiya", "universitet", "shifoxona", "kutubxona", 
+    "tadbirkor", "o'qituvchi", "shifokor", "muhandis", "iqtisodiyot", "siyosat",
+    "ma'naviyat", "ma'rifat", "taraqqiyot", "investitsiya", "texnologiya", "shartnoma",
+    "mas'uliyat", "muvaffaqiyat", "imkoniyat", "tushuncha", "qarash", "munosabat",
+    "jamiyat", "madaniyat", "an'ana", "qadriyat", "iste'dod", "qobiliyat",
+    "tadqiqot", "tajriba", "xavfsizlik", "intizom", "natija", "samara",
+    "istiqlol", "barqarorlik", "hamkorlik", "rejalashtirish", "boshqaruv", "loyiha",
+    "tashkilot", "korxona", "faoliyat", "jarayon", "muammo", "yechim",
+    "mukammal", "shaffof", "zamonaviy", "iqtidor", "mahorat", "xizmat",
+    "xalqaro", "mahalliy", "iqlim", "ekologiya", "tabiatni-muhofaza-qilish"
+],
 };
 
 type Difficulty = 'easy' | 'medium' | 'hard';
