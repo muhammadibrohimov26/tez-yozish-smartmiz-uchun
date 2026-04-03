@@ -29,7 +29,7 @@ const WORDS_BY_DIFFICULTY = {
     "xona", "bog'cha", "o'rmon", "bulut", "yomg'ir", "shamol", "tuman", "bahor",
     "yozgi", "kuzgi", "qishki", "do'stlik", "hurmat", "shon-sharaf", "baxtli", "tinchlik",
     "bilim", "mehnat", "rahmat", "kechirim", "sog'liq", "boylik", "donolik", "ozodlik",
-    "ertaga", "kecha", "har doim", "hech qachon", "ba'zan", "tezda", "darhol", "ehtiyot",
+    "ertaga", "kecha", "har doim", "hech-qachon", "ba'zan", "tezda", "darhol", "ehtiyot",
     "ovqat", "meva", "sabzavot", "bozor", "do'kon", "mashina", "poyezd", "samolyot",
     "qiziqarli", "chiroyli", "aqlli", "kuchli", "toza", "ozoda", "og'ir", "yengil"
 ],
@@ -38,7 +38,7 @@ const WORDS_BY_DIFFICULTY = {
     "dastur", "axborot", "texnika", "tinchlik", "qishloq", "gapirish", 
     "eshitish", "yugurish", "sakrash", "o'ynash", "kulish", "achchiq", 
     "jigarrang", "binafsha", "kulrang", "ertaga", "kecha", "doim", 
-    "hech qachon", "baland", "madhiya", "universitet", "shifoxona", "kutubxona", 
+    "hech-qachon", "baland", "madhiya", "universitet", "shifoxona", "kutubxona", 
     "tadbirkor", "o'qituvchi", "shifokor", "muhandis", "iqtisodiyot", "siyosat",
     "ma'naviyat", "ma'rifat", "taraqqiyot", "investitsiya", "texnologiya", "shartnoma",
     "mas'uliyat", "muvaffaqiyat", "imkoniyat", "tushuncha", "qarash", "munosabat",
