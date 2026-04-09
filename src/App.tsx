@@ -80,7 +80,7 @@ export default function App() {
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [isLatin, setIsLatin] = useState(true);
   const [isMuted, setIsMuted] = useState(false);
-  const [difficulty, setDifficulty] = useState<Difficulty>('medium');
+  const [difficulty, setDifficulty] = useState<Difficulty>('easy');
   
   const [words, setWords] = useState<string[]>([]);
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
