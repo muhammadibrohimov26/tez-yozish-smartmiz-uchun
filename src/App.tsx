@@ -29,7 +29,7 @@ const WORDS_BY_DIFFICULTY = {
     "xona", "bog'cha", "o'rmon", "bulut", "yomg'ir", "shamol", "tuman", "bahor",
     "yozgi", "kuzgi", "qishki", "do'stlik", "hurmat", "shon-sharaf", "baxtli", "tinchlik",
     "bilim", "mehnat", "rahmat", "kechirim", "sog'liq", "boylik", "donolik", "ozodlik",
-    "ertaga", "kecha", "har doim", "hech-qachon", "ba'zan", "tezda", "darhol", "ehtiyot",
+    "ertaga", "kecha", "har-doim", "hech-qachon", "ba'zan", "tezda", "darhol", "ehtiyot",
     "ovqat", "meva", "sabzavot", "bozor", "do'kon", "mashina", "poyezd", "samolyot",
     "qiziqarli", "chiroyli", "aqlli", "kuchli", "toza", "ozoda", "og'ir", "yengil"
 ],
