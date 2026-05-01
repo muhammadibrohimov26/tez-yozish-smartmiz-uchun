@@ -13,7 +13,7 @@ const WORDS_BY_DIFFICULTY = {
     "ona","smartmiz", "ilm", "baxt", "gul", "non", "suv", "aka", "uka", "opa", "ota", 
     "bola", "yo'l", "uy", "ish", "oq", "ko'k", "tez", "past", "ko'z", "qo'l", 
     "bosh", "tish", "til", "soch", "fan", "bog'", "yer", "oy", "kun", "tun", 
-    "qor", "muz", "tog'", "ko'l", "Sherzod", "choy", "sut", "tuz", "asal", "osh", 
+    "qor", "muz", "tog'", "ko'l", "sherzod", "choy", "sut", "tuz", "asal", "osh", 
     "non", "meva", "anor", "olma", "behi", "uzum", "shat", "xat", "qalam", "daftar", 
     "kitob", "stol", "stul", "deraza", "eshik", "devor", "tom", "pol", "shahar", "burhon",
     "boy", "kam", "ko'p", "keng", "tor", "sog'", "yov", "yot", "yosh", "qari",
