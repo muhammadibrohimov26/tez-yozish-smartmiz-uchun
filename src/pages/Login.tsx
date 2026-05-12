@@ -2,7 +2,7 @@ import React from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 
-export default function Login({ isDarkMode }: { isDarkMode: boolean }) {
+export default function Login({ isDarkMode, themeColor }: { isDarkMode: boolean; themeColor?: string }) {
   const { loginWithGoogle, user } = useAuth();
   const navigate = useNavigate();
 

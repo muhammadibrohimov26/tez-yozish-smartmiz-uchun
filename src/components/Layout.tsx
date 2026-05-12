@@ -3,10 +3,11 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { Zap, Home, Trophy, Users, User, LogOut, LogIn } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 
-export default function Layout({ children, isDarkMode, setIsDarkMode }: {
+export default function Layout({ children, isDarkMode, setIsDarkMode, themeColor }: {
   children: React.ReactNode;
   isDarkMode: boolean;
   setIsDarkMode: (v: boolean) => void;
+  themeColor?: string;
 }) {
   const { user, profile, logout } = useAuth();
   const navigate = useNavigate();

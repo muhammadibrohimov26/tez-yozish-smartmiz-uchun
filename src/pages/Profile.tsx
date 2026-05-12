@@ -7,7 +7,7 @@ import { BADGES, getEarnedBadges, getStreak } from '../data/badges';
 import { THEMES, getTheme, setTheme as saveTheme } from '../data/themes';
 import type { ThemeColor, TestResult } from '../types';
 
-export default function Profile({ isDarkMode }: { isDarkMode: boolean }) {
+export default function Profile({ isDarkMode, onThemeChange }: { isDarkMode: boolean; onThemeChange?: (color: ThemeColor) => void }) {
   const { profile } = useAuth();
   const [editing, setEditing] = useState(false);
   const [newName, setNewName] = useState('');

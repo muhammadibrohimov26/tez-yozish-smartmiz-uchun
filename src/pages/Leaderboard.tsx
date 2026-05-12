@@ -2,7 +2,7 @@ import React from 'react';
 import { Trophy } from 'lucide-react';
 import { useLeaderboard } from '../hooks/useLeaderboard';
 
-export default function Leaderboard({ isDarkMode }: { isDarkMode: boolean }) {
+export default function Leaderboard({ isDarkMode, themeColor }: { isDarkMode: boolean; themeColor?: string }) {
   const { entries, loading } = useLeaderboard();
   const medals = ['🥇', '🥈', '🥉'];
   const card = `rounded-[24px] border p-6 ${isDarkMode ? 'border-white/5 bg-white/5' : 'border-gray-200 bg-white'}`;
