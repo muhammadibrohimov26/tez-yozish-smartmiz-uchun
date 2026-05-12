@@ -8,7 +8,7 @@ import Groups from './pages/Groups';
 import GroupDetail from './pages/GroupDetail';
 import Leaderboard from './pages/Leaderboard';
 import Profile from './pages/Profile';
-import { getTheme, applyTheme, THEMES } from './data/themes';
+import { getTheme, applyTheme } from './data/themes';
 import type { ThemeColor } from './types';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -27,7 +27,6 @@ function AppRoutes() {
     applyTheme(themeColor);
   }, [themeColor]);
 
-  const theme = THEMES[themeColor];
 
   return (
     <Layout isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} themeColor={themeColor}>
