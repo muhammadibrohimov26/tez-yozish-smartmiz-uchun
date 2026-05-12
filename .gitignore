@@ -1,8 +1,25 @@
+# Dependencies
 node_modules/
+
+# Build output
 build/
 dist/
 coverage/
-.DS_Store
-*.log
+
+# Environment files (contain secrets!)
 .env*
 !.env.example
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Misc
+metadata.json
