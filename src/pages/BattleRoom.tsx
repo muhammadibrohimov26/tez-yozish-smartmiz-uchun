@@ -106,7 +106,7 @@ export default function BattleRoom({ isDarkMode, themeColor = 'blue' }: { isDark
     const trimmedValue = value.trim();
     if (!trimmedValue) return;
 
-    const targetWord = battle.words[currentWordIndex];
+    const targetWord = (battle.words || [])[currentWordIndex];
     if (!targetWord) return;
     const isCorrect = trimmedValue === targetWord;
 
@@ -142,7 +142,7 @@ export default function BattleRoom({ isDarkMode, themeColor = 'blue' }: { isDark
   };
 
   const renderParticipants = () => {
-    const participants: BattleParticipant[] = Object.values(battle.participants) as BattleParticipant[];
+    const participants: BattleParticipant[] = Object.values(battle.participants || {}) as BattleParticipant[];
     let visibleParticipants = participants;
 
     // Filter for 1v1 Mode
@@ -152,8 +152,8 @@ export default function BattleRoom({ isDarkMode, themeColor = 'blue' }: { isDark
     }
 
     // Sort by WPM (highest first)
-    const sorted = visibleParticipants.sort((a, b) => b.wpm - a.wpm);
-    const maxWpm = Math.max(...participants.map(p => p.wpm), 20); // Minimum 20 for scaling
+    const sorted = visibleParticipants.sort((a, b) => (b.wpm || 0) - (a.wpm || 0));
+    const maxWpm = Math.max(...participants.map(p => p.wpm || 0), 20); // Minimum 20 for scaling
 
     return (
       <div className="space-y-4 w-full max-w-3xl mx-auto">
@@ -183,10 +183,10 @@ export default function BattleRoom({ isDarkMode, themeColor = 'blue' }: { isDark
                   <span className={`font-bold ${isFirstPlace ? 'text-yellow-600 dark:text-yellow-500' : ''}`}>
                     {p.displayName} {isMe ? '(Siz)' : ''}
                   </span>
-                  <span className="text-sm font-mono font-black text-blue-500">{p.wpm} WPM</span>
+                  <span className="text-sm font-mono font-black text-blue-500">{p.wpm || 0} WPM</span>
                 </div>
                 <div className="w-full h-2 rounded-full bg-gray-200 dark:bg-gray-800 overflow-hidden relative">
-                  <motion.div initial={{ width: 0 }} animate={{ width: `${(p.wpm / maxWpm) * 100}%` }} className={`h-full ${isFirstPlace ? 'bg-yellow-500' : 'bg-blue-500'}`} transition={{ duration: 0.3 }} />
+                  <motion.div initial={{ width: 0 }} animate={{ width: `${((p.wpm || 0) / maxWpm) * 100}%` }} className={`h-full ${isFirstPlace ? 'bg-yellow-500' : 'bg-blue-500'}`} transition={{ duration: 0.3 }} />
                 </div>
               </div>
               {p.isFinished && <Trophy className="w-6 h-6 text-yellow-500" />}
@@ -199,10 +199,11 @@ export default function BattleRoom({ isDarkMode, themeColor = 'blue' }: { isDark
 
   const renderFinishedState = () => {
     const isFinal = battle.status === 'finished';
-    const participants: BattleParticipant[] = Object.values(battle.participants) as BattleParticipant[];
+    const participants: BattleParticipant[] = Object.values(battle.participants || {}) as BattleParticipant[];
     const sorted = participants.map(p => {
-      const sum = p.roundWpms.reduce((a, b) => a + b, 0);
-      const avg = p.roundWpms.length > 0 ? Math.round((sum + (isFinal ? 0 : p.wpm)) / (p.roundWpms.length + (isFinal ? 0 : 1))) : p.wpm;
+      const wpms = p.roundWpms || [];
+      const sum = wpms.reduce((a, b) => a + b, 0);
+      const avg = wpms.length > 0 ? Math.round((sum + (isFinal ? 0 : (p.wpm || 0))) / (wpms.length + (isFinal ? 0 : 1))) : (p.wpm || 0);
       return { ...p, avg };
     }).sort((a, b) => b.avg - a.avg);
 
@@ -217,10 +218,10 @@ export default function BattleRoom({ isDarkMode, themeColor = 'blue' }: { isDark
               <span className="text-3xl font-black w-10 text-center">{i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1}</span>
               <div className="flex-1 text-left">
                 <span className="font-bold text-lg">{p.displayName}</span>
-                <p className="text-xs opacity-50">To'g'ri yozilgan belgilar: {p.totalCorrectChars}</p>
+                <p className="text-xs opacity-50">To'g'ri yozilgan belgilar: {p.totalCorrectChars || 0}</p>
               </div>
               <div className="text-right">
-                <span className="text-2xl font-black text-blue-500">{isFinal ? p.avg : p.wpm}</span>
+                <span className="text-2xl font-black text-blue-500">{isFinal ? p.avg : (p.wpm || 0)}</span>
                 <span className="text-xs block opacity-50 font-bold">{isFinal ? "O'rtacha WPM" : 'WPM'}</span>
               </div>
             </div>
@@ -248,9 +249,9 @@ export default function BattleRoom({ isDarkMode, themeColor = 'blue' }: { isDark
          </button>
          <div className="text-center">
             <h1 className="text-2xl font-display font-black">
-              {battle.type === '1v1' ? '1 ga 1 (Duel)' : 'Guruhaviy Jang'} ({battle.currentRound}/{battle.totalRounds})
+              {battle.type === '1v1' ? '1 ga 1 (Duel)' : 'Guruhaviy Jang'} ({battle.currentRound || 1}/{battle.totalRounds || 3})
             </h1>
-            <span className="text-sm opacity-50 flex items-center gap-1 justify-center mt-1"><Users className="w-4 h-4"/> {Object.keys(battle.participants).length} ishtirokchi</span>
+            <span className="text-sm opacity-50 flex items-center gap-1 justify-center mt-1"><Users className="w-4 h-4"/> {Object.keys(battle.participants || {}).length} ishtirokchi</span>
          </div>
          <div className="w-11"></div>
       </div>
@@ -295,7 +296,7 @@ export default function BattleRoom({ isDarkMode, themeColor = 'blue' }: { isDark
           {!me?.isFinished && timeLeftInRound > 0 && (
              <div className="w-full max-w-3xl mx-auto mt-12 bg-white dark:bg-white/5 p-8 rounded-3xl border border-gray-100 dark:border-white/5 shadow-2xl">
               <div className="text-4xl sm:text-6xl font-display font-black tracking-tighter text-center mb-10 text-gray-900 dark:text-white">
-                {battle.words[currentWordIndex] || '...'}
+                {(battle.words || [])[currentWordIndex] || '...'}
               </div>
               <input ref={inputRef} type="text" value={userInput} onChange={handleInput} onKeyDown={handleKeyDown}
                   autoFocus disabled={!isTypingActive}
