@@ -14,9 +14,9 @@ export default function GroupDetail({ isDarkMode }: { isDarkMode: boolean }) {
   const { activeBattles, createBattle } = useBattle(id);
   const [showBattleMenu, setShowBattleMenu] = React.useState(false);
 
-  const handleCreateBattle = async (rounds: 3 | 5) => {
+  const handleCreateBattle = async (type: 'group' | '1v1', rounds: 3 | 5) => {
     if (!user || !profile) return;
-    const battleId = await createBattle(user.uid, profile.displayName, rounds);
+    const battleId = await createBattle(user.uid, profile.displayName, type, rounds);
     if (battleId) {
       navigate(`/groups/${id}/battle/${battleId}`);
     }
@@ -55,9 +55,14 @@ export default function GroupDetail({ isDarkMode }: { isDarkMode: boolean }) {
           </button>
           
           {showBattleMenu && (
-            <div className={`absolute top-full right-0 mt-2 w-48 rounded-2xl border shadow-xl overflow-hidden z-50 ${isDarkMode ? 'border-white/10 bg-gray-900' : 'border-gray-200 bg-white'}`}>
-              <button onClick={() => handleCreateBattle(3)} className={`w-full text-left px-4 py-3 text-sm font-bold transition-all ${isDarkMode ? 'hover:bg-white/10' : 'hover:bg-gray-50'}`}>3 Raundlik Jang</button>
-              <button onClick={() => handleCreateBattle(5)} className={`w-full text-left px-4 py-3 text-sm font-bold transition-all border-t ${isDarkMode ? 'border-white/10 hover:bg-white/10' : 'border-gray-100 hover:bg-gray-50'}`}>5 Raundlik Jang</button>
+            <div className={`absolute top-full right-0 mt-2 w-56 rounded-2xl border shadow-xl overflow-hidden z-50 ${isDarkMode ? 'border-white/10 bg-gray-900' : 'border-gray-200 bg-white'}`}>
+              <div className="px-4 py-2 text-xs font-bold text-gray-500 uppercase tracking-wider border-b border-gray-100 dark:border-white/5">Guruhaviy Jang (Hamma)</div>
+              <button onClick={() => handleCreateBattle('group', 3)} className={`w-full text-left px-4 py-3 text-sm font-bold transition-all ${isDarkMode ? 'hover:bg-white/10' : 'hover:bg-gray-50'}`}>3 Raund (60 soniya)</button>
+              <button onClick={() => handleCreateBattle('group', 5)} className={`w-full text-left px-4 py-3 text-sm font-bold transition-all border-b ${isDarkMode ? 'border-white/10 hover:bg-white/10' : 'border-gray-100 hover:bg-gray-50'}`}>5 Raund (60 soniya)</button>
+              
+              <div className="px-4 py-2 text-xs font-bold text-gray-500 uppercase tracking-wider border-b border-gray-100 dark:border-white/5 bg-black/5 dark:bg-white/5">1 ga 1 (Duels)</div>
+              <button onClick={() => handleCreateBattle('1v1', 3)} className={`w-full text-left px-4 py-3 text-sm font-bold transition-all ${isDarkMode ? 'hover:bg-white/10' : 'hover:bg-gray-50'}`}>3 Raund (60 soniya)</button>
+              <button onClick={() => handleCreateBattle('1v1', 5)} className={`w-full text-left px-4 py-3 text-sm font-bold transition-all ${isDarkMode ? 'hover:bg-white/10' : 'hover:bg-gray-50'}`}>5 Raund (60 soniya)</button>
             </div>
           )}
 

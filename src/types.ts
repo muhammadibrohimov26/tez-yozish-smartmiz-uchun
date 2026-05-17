@@ -79,9 +79,11 @@ export interface Battle {
   creatorId: string;
   creatorName: string;
   status: 'waiting' | 'starting' | 'round_active' | 'round_finished' | 'finished';
+  type: 'group' | '1v1';
   totalRounds: 3 | 5;
   currentRound: number;
   words: string[];
+  pairings?: Record<string, string>; // Maps userId to their opponent's userId for the current round
   participants: Record<string, BattleParticipant>;
   startTime: any;
   createdAt: any;

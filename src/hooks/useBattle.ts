@@ -2,7 +2,30 @@ import { useState, useEffect } from 'react';
 import { collection, doc, setDoc, updateDoc, onSnapshot, serverTimestamp, query, where, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import type { Battle, BattleParticipant } from '../types';
-import { WORDS } from '../data/words';
+import { UZBEK_WORDS } from '../data/uzbek_words';
+
+function generatePairings(participantIds: string[]): Record<string, string> {
+  const shuffled = [...participantIds].sort(() => Math.random() - 0.5);
+  const pairings: Record<string, string> = {};
+  
+  for (let i = 0; i < shuffled.length; i += 2) {
+    if (i + 1 < shuffled.length) {
+      const p1 = shuffled[i];
+      const p2 = shuffled[i + 1];
+      pairings[p1] = p2;
+      pairings[p2] = p1;
+    } else {
+      // Odd one out plays solo this round
+      pairings[shuffled[i]] = 'solo';
+    }
+  }
+  return pairings;
+}
+
+function getRandomWords(count: number): string[] {
+  const shuffled = [...UZBEK_WORDS].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, count);
+}
 
 export function useBattle(groupId?: string) {
   const [activeBattles, setActiveBattles] = useState<Battle[]>([]);
@@ -16,22 +39,23 @@ export function useBattle(groupId?: string) {
     return unsub;
   }, [groupId]);
 
-  const createBattle = async (userId: string, userName: string, totalRounds: 3 | 5) => {
+  const createBattle = async (userId: string, userName: string, type: 'group' | '1v1', totalRounds: 3 | 5) => {
     if (!groupId) return;
     const battleRef = doc(collection(db, 'groups', groupId, 'battles'));
     
-    // Generate initial words for round 1
-    const baseWords = WORDS.uz.medium;
-    const shuffled = [...baseWords].sort(() => Math.random() - 0.5).slice(0, 50); // 50 words per round
+    // Generate initial words for round 1 (300 words is plenty for 60 seconds)
+    const words = getRandomWords(300);
 
     const newBattle: Omit<Battle, 'id'> = {
       groupId,
       creatorId: userId,
       creatorName: userName,
       status: 'waiting',
+      type,
       totalRounds,
       currentRound: 1,
-      words: shuffled,
+      words,
+      pairings: {}, // Will be populated on start if 1v1
       participants: {
         [userId]: {
           userId,
@@ -64,7 +88,8 @@ export function useBattleRoom(groupId: string | undefined, battleId: string | un
       if (doc.exists()) {
         const b = { id: doc.id, ...doc.data() } as Battle;
         
-        // Check if round should transition to round_finished
+        // The server-side logic for finishing round is handled by clients now when timer runs out.
+        // We just sync state.
         if (b.status === 'round_active') {
           const allFinished = Object.values(b.participants).every(p => p.isFinished);
           if (allFinished && b.creatorId === userId) {
@@ -113,8 +138,14 @@ export function useBattleRoom(groupId: string | undefined, battleId: string | un
     if (!groupId || !battleId || !userId || !battle) return;
     if (battle.creatorId !== userId) return;
 
+    let pairings = {};
+    if (battle.type === '1v1') {
+      pairings = generatePairings(Object.keys(battle.participants));
+    }
+
     await updateDoc(doc(db, 'groups', groupId, 'battles', battleId), {
-      status: 'starting'
+      status: 'starting',
+      pairings
     });
     
     // Set start time 5 seconds in the future
@@ -128,7 +159,7 @@ export function useBattleRoom(groupId: string | undefined, battleId: string | un
   const updateProgress = async (progress: number, wpm: number) => {
     if (!groupId || !battleId || !userId || !battle || battle.status !== 'round_active') return;
     await updateDoc(doc(db, 'groups', groupId, 'battles', battleId), {
-      [`participants.${userId}.progress`]: progress,
+      [`participants.${userId}.progress`]: progress, // progress is now chars typed (for visuals)
       [`participants.${userId}.wpm`]: wpm
     });
   };
@@ -145,7 +176,6 @@ export function useBattleRoom(groupId: string | undefined, battleId: string | un
     await updateDoc(doc(db, 'groups', groupId, 'battles', battleId), {
       [`participants.${userId}.isFinished`]: true,
       [`participants.${userId}.wpm`]: wpm,
-      [`participants.${userId}.progress`]: 100,
       [`participants.${userId}.roundWpms`]: newRoundWpms,
       [`participants.${userId}.roundAccuracies`]: newRoundAccuracies,
       [`participants.${userId}.totalCorrectChars`]: p.totalCorrectChars + chars
@@ -163,14 +193,19 @@ export function useBattleRoom(groupId: string | undefined, battleId: string | un
       return;
     }
 
-    const baseWords = WORDS.uz.medium;
-    const shuffled = [...baseWords].sort(() => Math.random() - 0.5).slice(0, 50);
-
+    const words = getRandomWords(300);
     const startT = new Date(Date.now() + 5000);
+    
+    let pairings = battle.pairings || {};
+    if (battle.type === '1v1') {
+      pairings = generatePairings(Object.keys(battle.participants));
+    }
+
     const updates: any = {
       status: 'round_active',
       currentRound: battle.currentRound + 1,
-      words: shuffled,
+      words,
+      pairings,
       startTime: startT
     };
     

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useBattleRoom } from '../hooks/useBattle';
-import { Trophy, ArrowLeft, Zap, Users } from 'lucide-react';
+import { Trophy, ArrowLeft, Zap, Users, Timer, Crown } from 'lucide-react';
 import { motion } from 'motion/react';
 import type { BattleParticipant } from '../types';
 
@@ -18,37 +18,59 @@ export default function BattleRoom({ isDarkMode, themeColor = 'blue' }: { isDark
   const [correctChars, setCorrectChars] = useState(0);
   const [incorrectChars, setIncorrectChars] = useState(0);
   const [timeLeftToStart, setTimeLeftToStart] = useState<number | null>(null);
+  const [timeLeftInRound, setTimeLeftInRound] = useState<number>(60);
   
   const inputRef = useRef<HTMLInputElement>(null);
   const startTimeRef = useRef<number>(0);
+  const correctCharsRef = useRef(0);
+  const incorrectCharsRef = useRef(0);
   
+  useEffect(() => { correctCharsRef.current = correctChars; }, [correctChars]);
+  useEffect(() => { incorrectCharsRef.current = incorrectChars; }, [incorrectChars]);
+
   useEffect(() => {
     if (battle?.status === 'waiting' && user && battle.participants[user.uid] === undefined) {
       joinBattle();
     }
   }, [battle?.status, user]);
 
+  const me = user ? battle?.participants[user.uid] : null;
+
   useEffect(() => {
     if (battle?.status === 'round_active' && battle.startTime) {
       const st = battle.startTime.toDate ? battle.startTime.toDate().getTime() : new Date(battle.startTime).getTime();
       const interval = setInterval(() => {
         const now = Date.now();
-        const diff = Math.max(0, Math.ceil((st - now) / 1000));
-        setTimeLeftToStart(diff > 0 ? diff : null);
+        const diffToStart = Math.max(0, Math.ceil((st - now) / 1000));
+        setTimeLeftToStart(diffToStart > 0 ? diffToStart : null);
         
-        if (diff === 0 && startTimeRef.current === 0) {
-          startTimeRef.current = Date.now();
-          if (inputRef.current) inputRef.current.focus();
+        if (diffToStart === 0) {
+          if (startTimeRef.current === 0) {
+            startTimeRef.current = Date.now();
+            if (inputRef.current) inputRef.current.focus();
+          }
+          
+          const elapsed = Date.now() - startTimeRef.current;
+          const left = Math.max(0, 60 - Math.floor(elapsed / 1000));
+          setTimeLeftInRound(left);
+          
+          if (left === 0 && user && !me?.isFinished) {
+            const finalWpm = Math.round((correctCharsRef.current / 5)); // Since it's exactly 1 minute, WPM is just chars / 5
+            const totalTyped = correctCharsRef.current + incorrectCharsRef.current;
+            const finalAccuracy = totalTyped > 0 ? Math.round((correctCharsRef.current / totalTyped) * 100) : 0;
+            finishRound(finalWpm, finalAccuracy, correctCharsRef.current);
+          }
         }
       }, 100);
       return () => clearInterval(interval);
     } else {
       setTimeLeftToStart(null);
+      setTimeLeftInRound(60);
       if (battle?.status !== 'round_active') {
         startTimeRef.current = 0;
       }
     }
-  }, [battle?.status, battle?.startTime]);
+  }, [battle?.status, battle?.startTime, user, me?.isFinished]);
 
   useEffect(() => {
     if (battle?.status === 'starting' || battle?.status === 'round_finished') {
@@ -62,9 +84,8 @@ export default function BattleRoom({ isDarkMode, themeColor = 'blue' }: { isDark
 
   if (!battle) return <div className="text-center py-20">Jang topilmadi...</div>;
 
-  const me = user ? battle.participants[user.uid] : null;
   const isCreator = user?.uid === battle.creatorId;
-  const isTypingActive = battle.status === 'round_active' && timeLeftToStart === null && !me?.isFinished;
+  const isTypingActive = battle.status === 'round_active' && timeLeftToStart === null && !me?.isFinished && timeLeftInRound > 0;
   
   const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!isTypingActive) return;
@@ -112,40 +133,66 @@ export default function BattleRoom({ isDarkMode, themeColor = 'blue' }: { isDark
     const newIndex = currentWordIndex + 1;
     setCurrentWordIndex(newIndex);
     
-    const elapsed = (Date.now() - startTimeRef.current) / 60000;
-    const currentWpm = elapsed > 0 ? Math.round((newCorrect / 5) / elapsed) : 0;
-    const progress = Math.min(100, Math.round((newIndex / battle.words.length) * 100));
+    const elapsedMinutes = (Date.now() - startTimeRef.current) / 60000;
+    const currentWpm = elapsedMinutes > 0 ? Math.round((newCorrect / 5) / elapsedMinutes) : 0;
     
-    updateProgress(progress, currentWpm);
-
-    if (newIndex >= battle.words.length) {
-      const accuracy = Math.round((newCorrect / (newCorrect + newIncorrect)) * 100);
-      finishRound(currentWpm, accuracy, newCorrect);
-    }
+    // In 60s mode, we don't track progress to 100%, we just show who has the most characters typed/WPM.
+    // We'll pass the character count to progress for the UI bar comparison.
+    updateProgress(newCorrect, currentWpm);
   };
 
   const renderParticipants = () => {
     const participants: BattleParticipant[] = Object.values(battle.participants) as BattleParticipant[];
-    const sorted = participants.sort((a, b) => b.progress - a.progress);
+    let visibleParticipants = participants;
+
+    // Filter for 1v1 Mode
+    if (battle.type === '1v1' && battle.status !== 'waiting' && user) {
+      const myOpponentId = battle.pairings?.[user.uid];
+      visibleParticipants = participants.filter(p => p.userId === user.uid || p.userId === myOpponentId);
+    }
+
+    // Sort by WPM (highest first)
+    const sorted = visibleParticipants.sort((a, b) => b.wpm - a.wpm);
+    const maxWpm = Math.max(...participants.map(p => p.wpm), 20); // Minimum 20 for scaling
+
     return (
       <div className="space-y-4 w-full max-w-3xl mx-auto">
-        {sorted.map((p, i) => (
-          <div key={p.userId} className={`p-4 rounded-2xl border flex items-center gap-4 ${p.userId === user?.uid ? 'border-blue-500 bg-blue-500/10' : (isDarkMode ? 'border-white/5 bg-white/5' : 'border-gray-200 bg-white')}`}>
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold flex-shrink-0">
-              {p.photoURL ? <img src={p.photoURL} className="w-full h-full rounded-full object-cover" /> : p.displayName.charAt(0).toUpperCase()}
-            </div>
-            <div className="flex-1">
-              <div className="flex justify-between mb-1">
-                <span className="font-bold">{p.displayName}</span>
-                <span className="text-sm font-mono">{p.wpm} WPM</span>
-              </div>
-              <div className="w-full h-2 rounded-full bg-gray-200 dark:bg-gray-800 overflow-hidden">
-                <motion.div initial={{ width: 0 }} animate={{ width: `${p.progress}%` }} className="h-full bg-blue-500" transition={{ duration: 0.3 }} />
-              </div>
-            </div>
-            {p.isFinished && <Trophy className="w-5 h-5 text-yellow-500" />}
+        {battle.type === '1v1' && battle.status !== 'waiting' && user && battle.pairings?.[user.uid] === 'solo' && (
+          <div className="text-center p-4 rounded-xl bg-orange-500/10 text-orange-500 font-bold border border-orange-500/20">
+            Siz bu raundda yolg'izsiz (ishtirokchilar soni toq). Shunchaki yozib ball yig'ing!
           </div>
-        ))}
+        )}
+        
+        {sorted.map((p, i) => {
+          const isMe = p.userId === user?.uid;
+          const isFirstPlace = battle.type === 'group' && i === 0 && p.wpm > 0;
+          return (
+            <div key={p.userId} className={`p-4 rounded-2xl border flex items-center gap-4 transition-all ${isMe ? 'border-blue-500 bg-blue-500/10' : (isDarkMode ? 'border-white/5 bg-white/5' : 'border-gray-200 bg-white')} ${isFirstPlace ? 'shadow-lg shadow-yellow-500/20 border-yellow-500/50' : ''}`}>
+              <div className="relative">
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold flex-shrink-0">
+                  {p.photoURL ? <img src={p.photoURL} className="w-full h-full rounded-full object-cover" /> : p.displayName.charAt(0).toUpperCase()}
+                </div>
+                {isFirstPlace && (
+                  <div className="absolute -top-3 -right-2 bg-yellow-500 rounded-full p-1 shadow-lg">
+                    <Crown className="w-3 h-3 text-white" />
+                  </div>
+                )}
+              </div>
+              <div className="flex-1">
+                <div className="flex justify-between mb-2">
+                  <span className={`font-bold ${isFirstPlace ? 'text-yellow-600 dark:text-yellow-500' : ''}`}>
+                    {p.displayName} {isMe ? '(Siz)' : ''}
+                  </span>
+                  <span className="text-sm font-mono font-black text-blue-500">{p.wpm} WPM</span>
+                </div>
+                <div className="w-full h-2 rounded-full bg-gray-200 dark:bg-gray-800 overflow-hidden relative">
+                  <motion.div initial={{ width: 0 }} animate={{ width: `${(p.wpm / maxWpm) * 100}%` }} className={`h-full ${isFirstPlace ? 'bg-yellow-500' : 'bg-blue-500'}`} transition={{ duration: 0.3 }} />
+                </div>
+              </div>
+              {p.isFinished && <Trophy className="w-6 h-6 text-yellow-500" />}
+            </div>
+          );
+        })}
       </div>
     );
   };
@@ -166,26 +213,26 @@ export default function BattleRoom({ isDarkMode, themeColor = 'blue' }: { isDark
         </h2>
         <div className="space-y-4">
           {sorted.map((p, i) => (
-            <div key={p.userId} className={`p-4 rounded-2xl border flex items-center gap-4 ${isDarkMode ? 'border-white/5 bg-white/5' : 'border-gray-200 bg-white'}`}>
-              <span className="text-2xl font-black w-8">{i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1}</span>
+            <div key={p.userId} className={`p-4 rounded-2xl border flex items-center gap-4 ${p.userId === user?.uid ? 'border-blue-500 bg-blue-500/10' : (isDarkMode ? 'border-white/5 bg-white/5' : 'border-gray-200 bg-white')}`}>
+              <span className="text-3xl font-black w-10 text-center">{i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1}</span>
               <div className="flex-1 text-left">
-                <span className="font-bold">{p.displayName}</span>
-                <p className="text-xs opacity-50">Jami belgilar: {p.totalCorrectChars}</p>
+                <span className="font-bold text-lg">{p.displayName}</span>
+                <p className="text-xs opacity-50">To'g'ri yozilgan belgilar: {p.totalCorrectChars}</p>
               </div>
               <div className="text-right">
-                <span className="text-xl font-black text-blue-500">{isFinal ? p.avg : p.wpm} WPM</span>
-                <span className="text-xs block opacity-50">{isFinal ? "O'rtacha" : 'Raund'}</span>
+                <span className="text-2xl font-black text-blue-500">{isFinal ? p.avg : p.wpm}</span>
+                <span className="text-xs block opacity-50 font-bold">{isFinal ? "O'rtacha WPM" : 'WPM'}</span>
               </div>
             </div>
           ))}
         </div>
         {isCreator && !isFinal && (
-          <button onClick={nextRound} className="px-8 py-4 rounded-xl bg-blue-600 text-white font-bold w-full hover:bg-blue-700">
+          <button onClick={nextRound} className="px-8 py-4 rounded-xl bg-blue-600 text-white font-bold w-full hover:bg-blue-700 shadow-lg shadow-blue-500/20">
             Keyingi Raundni Boshlash
           </button>
         )}
         {isFinal && (
-          <button onClick={() => navigate(`/groups/${groupId}`)} className="px-8 py-4 rounded-xl bg-gray-600 text-white font-bold w-full hover:bg-gray-700">
+          <button onClick={() => navigate(`/groups/${groupId}`)} className={`px-8 py-4 rounded-xl font-bold w-full transition-all ${isDarkMode ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-900'}`}>
             Guruhga Qaytish
           </button>
         )}
@@ -196,14 +243,16 @@ export default function BattleRoom({ isDarkMode, themeColor = 'blue' }: { isDark
   return (
     <div className="max-w-5xl mx-auto px-4 py-12 space-y-8">
       <div className="flex justify-between items-center">
-         <button onClick={() => { leaveBattle(); navigate(`/groups/${groupId}`); }} className={`p-2 rounded-xl ${isDarkMode ? 'hover:bg-white/5' : 'hover:bg-gray-100'}`}>
-            <ArrowLeft className="w-6 h-6" />
+         <button onClick={() => { leaveBattle(); navigate(`/groups/${groupId}`); }} className={`p-3 rounded-xl transition-all ${isDarkMode ? 'bg-white/5 hover:bg-white/10' : 'bg-white shadow-sm border border-gray-100 hover:bg-gray-50'}`}>
+            <ArrowLeft className="w-5 h-5" />
          </button>
          <div className="text-center">
-            <h1 className="text-2xl font-display font-black">Jang ({battle.currentRound}/{battle.totalRounds})</h1>
-            <span className="text-sm opacity-50 flex items-center gap-1 justify-center"><Users className="w-4 h-4"/> {Object.keys(battle.participants).length} ishtirokchi</span>
+            <h1 className="text-2xl font-display font-black">
+              {battle.type === '1v1' ? '1 ga 1 (Duel)' : 'Guruhaviy Jang'} ({battle.currentRound}/{battle.totalRounds})
+            </h1>
+            <span className="text-sm opacity-50 flex items-center gap-1 justify-center mt-1"><Users className="w-4 h-4"/> {Object.keys(battle.participants).length} ishtirokchi</span>
          </div>
-         <div className="w-10"></div>
+         <div className="w-11"></div>
       </div>
 
       {battle.status === 'waiting' && (
@@ -214,7 +263,7 @@ export default function BattleRoom({ isDarkMode, themeColor = 'blue' }: { isDark
           <h2 className="text-3xl font-display font-black">Boshqalar kutilmoqda...</h2>
           {renderParticipants()}
           {isCreator && (
-            <button onClick={startBattle} className="px-8 py-4 rounded-xl bg-blue-600 text-white font-bold mt-8 shadow-lg shadow-blue-500/30 hover:scale-105 transition-all">
+            <button onClick={startBattle} className="px-8 py-4 rounded-xl bg-blue-600 text-white font-bold mt-8 shadow-lg shadow-blue-500/30 hover:scale-105 transition-transform text-lg">
               Jangni Boshlash
             </button>
           )}
@@ -223,30 +272,44 @@ export default function BattleRoom({ isDarkMode, themeColor = 'blue' }: { isDark
 
       {battle.status === 'round_active' && timeLeftToStart !== null && (
          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-            <motion.span key={timeLeftToStart} initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-9xl font-display font-black text-white">
-              {timeLeftToStart}
-            </motion.span>
+            <motion.div key={timeLeftToStart} initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="flex flex-col items-center gap-4">
+              <span className="text-9xl font-display font-black text-white">{timeLeftToStart}</span>
+              <span className="text-xl text-white/50 font-bold uppercase tracking-widest">Tayyorlaning</span>
+            </motion.div>
          </div>
       )}
 
-      {battle.status === 'round_active' && (
+      {battle.status === 'round_active' && timeLeftToStart === null && (
         <div className="space-y-12">
+          
+          {/* Top Info Bar (Timer) */}
+          <div className="flex justify-center">
+            <div className="inline-flex items-center gap-3 px-6 py-3 rounded-full bg-rose-500 text-white font-bold shadow-lg shadow-rose-500/20">
+              <Timer className="w-5 h-5" />
+              <span className="text-xl font-mono">{timeLeftInRound}s</span>
+            </div>
+          </div>
+
           {renderParticipants()}
-          {!me?.isFinished && (
-             <div className="w-full max-w-2xl mx-auto">
-              <div className="text-4xl sm:text-6xl font-display font-black tracking-tighter text-center mb-8">
+
+          {!me?.isFinished && timeLeftInRound > 0 && (
+             <div className="w-full max-w-3xl mx-auto mt-12 bg-white dark:bg-white/5 p-8 rounded-3xl border border-gray-100 dark:border-white/5 shadow-2xl">
+              <div className="text-4xl sm:text-6xl font-display font-black tracking-tighter text-center mb-10 text-gray-900 dark:text-white">
                 {battle.words[currentWordIndex] || '...'}
               </div>
               <input ref={inputRef} type="text" value={userInput} onChange={handleInput} onKeyDown={handleKeyDown}
                   autoFocus disabled={!isTypingActive}
-                  className={`w-full bg-transparent border-b-4 p-4 text-3xl text-center focus:outline-none transition-all duration-300 ${isDarkMode ? 'placeholder:text-white/5 border-white/20' : 'placeholder:text-gray-100 border-gray-200'}`}
-                  style={{ color: 'var(--accent)', borderColor: 'var(--accent)' }}
-                  placeholder="TAYYOR..." />
+                  className={`w-full bg-transparent border-b-4 pb-4 text-3xl text-center focus:outline-none transition-all duration-300 ${isDarkMode ? 'placeholder:text-white/10 border-white/20 focus:border-blue-500' : 'placeholder:text-gray-200 border-gray-200 focus:border-blue-500'}`}
+                  placeholder="Shu yerga yozing..." />
              </div>
           )}
+
           {me?.isFinished && (
-             <div className="text-center text-2xl font-bold py-10 opacity-50 animate-pulse">
-                Boshqalarni kutamiz...
+             <div className="text-center space-y-4 py-16">
+                <Trophy className="w-16 h-16 text-yellow-500 mx-auto opacity-50" />
+                <div className="text-2xl font-bold opacity-50 animate-pulse">
+                  Vaqt tugadi! Boshqalarni kutamiz...
+                </div>
              </div>
           )}
         </div>
