@@ -208,10 +208,14 @@ export default function Home({ isDarkMode, themeColor = 'blue' }: { isDarkMode: 
                   style={{ borderColor: test.lastFeedback.type === 'incorrect' ? 'rgb(244,63,94)' : t.primary, color: test.lastFeedback.type === 'incorrect' ? 'rgb(244,63,94)' : t.primary }}
                   placeholder="TAYYOR..." />
                 <div className="absolute -bottom-10 left-0 right-0 flex justify-center gap-1.5">
-                  {Array.from({ length: 10 }).map((_, i) => (
-                    <div key={i} className={`h-1.5 rounded-full transition-all duration-500 ${i < (test.currentWordIndex % 10) ? 'w-8' : 'w-4 ' + (isDarkMode ? 'bg-white/10' : 'bg-gray-200')}`}
-                      style={i < (test.currentWordIndex % 10) ? { backgroundColor: t.primary } : {}} />
-                  ))}
+                  {Array.from({ length: 10 }).map((_, i) => {
+                    const progress = test.currentWordIndex % 10;
+                    const isActive = i < (progress === 0 && test.currentWordIndex > 0 ? 10 : progress);
+                    return (
+                      <div key={i} className={`h-1.5 rounded-full transition-all duration-500 ${isActive ? 'w-8' : 'w-4 ' + (isDarkMode ? 'bg-white/10' : 'bg-gray-200')}`}
+                        style={isActive ? { backgroundColor: t.primary } : {}} />
+                    );
+                  })}
                 </div>
               </div>
             </motion.div>

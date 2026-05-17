@@ -1,15 +1,26 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Trophy, ArrowLeft, Copy, Check, Zap } from 'lucide-react';
+import { Trophy, ArrowLeft, Copy, Check, Zap, Swords } from 'lucide-react';
 import { useGroupDetail } from '../hooks/useGroups';
 import { useAuth } from '../hooks/useAuth';
+import { useBattle } from '../hooks/useBattle';
 
 export default function GroupDetail({ isDarkMode }: { isDarkMode: boolean }) {
   const { id } = useParams<{ id: string }>();
   const { group, members, results, loading } = useGroupDetail(id);
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const navigate = useNavigate();
   const [copied, setCopied] = React.useState(false);
+  const { activeBattles, createBattle } = useBattle(id);
+  const [showBattleMenu, setShowBattleMenu] = React.useState(false);
+
+  const handleCreateBattle = async (rounds: 3 | 5) => {
+    if (!user || !profile) return;
+    const battleId = await createBattle(user.uid, profile.displayName, rounds);
+    if (battleId) {
+      navigate(`/groups/${id}/battle/${battleId}`);
+    }
+  };
 
   if (loading) return <div className="text-center py-20 opacity-30">Yuklanmoqda...</div>;
   if (!group) return <div className="text-center py-20 opacity-30">Guruh topilmadi</div>;
@@ -37,11 +48,49 @@ export default function GroupDetail({ isDarkMode }: { isDarkMode: boolean }) {
             </div>
           </div>
         </div>
-        <button onClick={() => navigate(`/groups/${id}/test`)}
-          className="flex items-center gap-2 px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold transition-all shadow-lg shadow-blue-600/20 active:scale-95">
-          <Zap className="w-4 h-4" /> Test boshlash
-        </button>
+        <div className="flex items-center gap-2 relative">
+          <button onClick={() => setShowBattleMenu(!showBattleMenu)}
+            className={`flex items-center gap-2 px-4 py-3 rounded-xl font-bold transition-all ${isDarkMode ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-600/20' : 'bg-indigo-100 hover:bg-indigo-200 text-indigo-700'}`}>
+            <Swords className="w-4 h-4" /> Jang yaratish
+          </button>
+          
+          {showBattleMenu && (
+            <div className={`absolute top-full right-0 mt-2 w-48 rounded-2xl border shadow-xl overflow-hidden z-50 ${isDarkMode ? 'border-white/10 bg-gray-900' : 'border-gray-200 bg-white'}`}>
+              <button onClick={() => handleCreateBattle(3)} className={`w-full text-left px-4 py-3 text-sm font-bold transition-all ${isDarkMode ? 'hover:bg-white/10' : 'hover:bg-gray-50'}`}>3 Raundlik Jang</button>
+              <button onClick={() => handleCreateBattle(5)} className={`w-full text-left px-4 py-3 text-sm font-bold transition-all border-t ${isDarkMode ? 'border-white/10 hover:bg-white/10' : 'border-gray-100 hover:bg-gray-50'}`}>5 Raundlik Jang</button>
+            </div>
+          )}
+
+          <button onClick={() => navigate(`/groups/${id}/test`)}
+            className="flex items-center gap-2 px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold transition-all shadow-lg shadow-blue-600/20 active:scale-95">
+            <Zap className="w-4 h-4" /> Yakkaxon test
+          </button>
+        </div>
       </div>
+
+      {/* Active Battles */}
+      {activeBattles.length > 0 && (
+        <div className={card}>
+          <h3 className="text-lg font-display font-bold mb-4 flex items-center gap-2 text-indigo-500">
+            <Swords className="w-5 h-5" /> Faol Janglar
+          </h3>
+          <div className="space-y-3">
+            {activeBattles.map(b => (
+              <div key={b.id} className={`flex items-center justify-between p-4 rounded-xl border ${isDarkMode ? 'border-indigo-500/30 bg-indigo-500/10' : 'border-indigo-200 bg-indigo-50'}`}>
+                <div>
+                  <span className="font-bold block">{b.creatorName}ning jangi</span>
+                  <span className={`text-xs ${isDarkMode ? 'opacity-50' : 'text-gray-500'}`}>
+                    {b.totalRounds} raund • {Object.keys(b.participants).length} ishtirokchi
+                  </span>
+                </div>
+                <button onClick={() => navigate(`/groups/${id}/battle/${b.id}`)} className="px-4 py-2 rounded-lg bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition-all text-sm">
+                  {b.status === 'waiting' ? 'Qo\'shilish' : 'Tomosha qilish'}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Podium (Top 3) */}
       {members.length >= 3 && (

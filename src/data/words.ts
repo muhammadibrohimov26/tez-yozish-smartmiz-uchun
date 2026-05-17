@@ -163,10 +163,18 @@ export function getDailyWords(lang: Language, diff: Difficulty): string[] {
     hash = ((hash << 5) - hash) + seed.charCodeAt(i);
     hash |= 0;
   }
+  
   const words = WORDS[lang][diff];
   const shuffled = [...words];
+  
+  // Seeded random generator
+  const random = (s: number) => {
+    const x = Math.sin(s) * 10000;
+    return x - Math.floor(x);
+  };
+
   for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.abs((hash * (i + 1)) % (i + 1));
+    const j = Math.floor(random(hash + i) * (i + 1));
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
   return [...shuffled, ...shuffled, ...shuffled];

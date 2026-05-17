@@ -36,26 +36,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const loginWithGoogle = async () => {
-    const cred = await signInWithPopup(auth, googleProvider);
-    const u = cred.user;
-    const userRef = doc(db, 'typingUsers', u.uid);
-    const snap = await getDoc(userRef);
-    if (!snap.exists()) {
-      const newProfile: UserProfile = {
-        uid: u.uid,
-        displayName: u.displayName || 'Foydalanuvchi',
-        email: u.email || '',
-        photoURL: u.photoURL || '',
-        createdAt: serverTimestamp(),
-        averageWpm: 0,
-        bestWpm: 0,
-        totalTests: 0,
-        totalCorrectChars: 0,
-      };
-      await setDoc(userRef, newProfile);
-      setProfile(newProfile);
-    } else {
-      setProfile(snap.data() as UserProfile);
+    try {
+      const cred = await signInWithPopup(auth, googleProvider);
+      const u = cred.user;
+      const userRef = doc(db, 'typingUsers', u.uid);
+      const snap = await getDoc(userRef);
+      if (!snap.exists()) {
+        const newProfile: UserProfile = {
+          uid: u.uid,
+          displayName: u.displayName || 'Foydalanuvchi',
+          email: u.email || '',
+          photoURL: u.photoURL || '',
+          createdAt: serverTimestamp(),
+          averageWpm: 0,
+          bestWpm: 0,
+          totalTests: 0,
+          totalCorrectChars: 0,
+        };
+        await setDoc(userRef, newProfile);
+        setProfile(newProfile);
+      } else {
+        setProfile(snap.data() as UserProfile);
+      }
+    } catch (err: any) {
+      if (err.code !== 'auth/popup-closed-by-user') {
+        console.error('Login error:', err);
+      }
     }
   };
 

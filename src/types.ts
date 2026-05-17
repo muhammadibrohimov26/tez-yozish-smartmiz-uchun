@@ -61,6 +61,32 @@ export interface WpmDataPoint {
   wpm: number;
 }
 
+export interface BattleParticipant {
+  userId: string;
+  displayName: string;
+  photoURL: string;
+  progress: number;
+  wpm: number;
+  isFinished: boolean;
+  roundWpms: number[];
+  roundAccuracies: number[];
+  totalCorrectChars: number;
+}
+
+export interface Battle {
+  id: string;
+  groupId: string;
+  creatorId: string;
+  creatorName: string;
+  status: 'waiting' | 'starting' | 'round_active' | 'round_finished' | 'finished';
+  totalRounds: 3 | 5;
+  currentRound: number;
+  words: string[];
+  participants: Record<string, BattleParticipant>;
+  startTime: any;
+  createdAt: any;
+}
+
 export interface Badge {
   id: string;
   name: string;

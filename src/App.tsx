@@ -8,6 +8,7 @@ import Groups from './pages/Groups';
 import GroupDetail from './pages/GroupDetail';
 import Leaderboard from './pages/Leaderboard';
 import Profile from './pages/Profile';
+import BattleRoom from './pages/BattleRoom';
 import { getTheme, applyTheme } from './data/themes';
 import type { ThemeColor } from './types';
 
@@ -37,6 +38,7 @@ function AppRoutes() {
         <Route path="/groups" element={<ProtectedRoute><Groups isDarkMode={isDarkMode} /></ProtectedRoute>} />
         <Route path="/groups/:id" element={<ProtectedRoute><GroupDetail isDarkMode={isDarkMode} /></ProtectedRoute>} />
         <Route path="/groups/:id/test" element={<ProtectedRoute><Home isDarkMode={isDarkMode} themeColor={themeColor} /></ProtectedRoute>} />
+        <Route path="/groups/:id/battle/:battleId" element={<ProtectedRoute><BattleRoom isDarkMode={isDarkMode} themeColor={themeColor} /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><Profile isDarkMode={isDarkMode} onThemeChange={setThemeColor} /></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

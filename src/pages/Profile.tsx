@@ -47,6 +47,7 @@ export default function Profile({ isDarkMode, onThemeChange }: { isDarkMode: boo
   const handleThemeChange = (color: ThemeColor) => {
     setCurrentTheme(color);
     saveTheme(color);
+    if (onThemeChange) onThemeChange(color);
     setShowThemes(false);
   };
 
@@ -77,7 +78,7 @@ export default function Profile({ isDarkMode, onThemeChange }: { isDarkMode: boo
           <div className="flex items-center justify-center gap-2 mt-2">
             <input type="text" value={newName} onChange={e => setNewName(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleSaveName()} autoFocus
-              className={`px-4 py-2 rounded-xl border text-center text-lg font-bold focus:outline-none focus:border-blue-500 w-48 ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-gray-50 border-gray-200'}`}
+              className={`px-4 py-2 rounded-xl border text-center text-lg font-bold focus:outline-none focus:border-blue-500 w-full max-w-[280px] ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-gray-50 border-gray-200'}`}
               placeholder="Yangi ism..." />
             <button onClick={handleSaveName} disabled={saving || !newName.trim()}
               className="p-2 rounded-lg bg-emerald-500/20 text-emerald-500 hover:bg-emerald-500/30 transition-all disabled:opacity-30">
