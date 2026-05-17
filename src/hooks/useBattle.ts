@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { collection, doc, setDoc, updateDoc, onSnapshot, serverTimestamp, query, where, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
-import type { Battle, BattleParticipant } from '../types';
+import type { Battle, BattleParticipant, Difficulty } from '../types';
 import { UZBEK_WORDS } from '../data/uzbek_words';
 
 function generatePairings(participantIds: string[]): Record<string, string> {
@@ -22,8 +22,23 @@ function generatePairings(participantIds: string[]): Record<string, string> {
   return pairings;
 }
 
-function getRandomWords(count: number): string[] {
-  const shuffled = [...UZBEK_WORDS].sort(() => Math.random() - 0.5);
+function getRandomWords(count: number, difficulty: Difficulty): string[] {
+  let filtered = UZBEK_WORDS;
+  if (difficulty === 'easy') {
+    filtered = UZBEK_WORDS.filter(w => w.length <= 5);
+  } else if (difficulty === 'medium') {
+    filtered = UZBEK_WORDS.filter(w => w.length >= 6 && w.length <= 8);
+  } else if (difficulty === 'hard') {
+    filtered = UZBEK_WORDS.filter(w => w.length > 8);
+  }
+
+  // Duplicate to ensure we have enough words
+  let pool: string[] = [];
+  while (pool.length < count) {
+    pool = [...pool, ...filtered];
+  }
+
+  const shuffled = pool.sort(() => Math.random() - 0.5);
   return shuffled.slice(0, count);
 }
 
@@ -39,12 +54,12 @@ export function useBattle(groupId?: string) {
     return unsub;
   }, [groupId]);
 
-  const createBattle = async (userId: string, userName: string, type: 'group' | '1v1', totalRounds: 3 | 5) => {
+  const createBattle = async (userId: string, userName: string, type: 'group' | '1v1', difficulty: Difficulty, totalRounds: 3 | 5) => {
     if (!groupId) return;
     const battleRef = doc(collection(db, 'groups', groupId, 'battles'));
     
     // Generate initial words for round 1 (300 words is plenty for 60 seconds)
-    const words = getRandomWords(300);
+    const words = getRandomWords(300, difficulty);
 
     const newBattle: Omit<Battle, 'id'> = {
       groupId,
@@ -52,6 +67,7 @@ export function useBattle(groupId?: string) {
       creatorName: userName,
       status: 'waiting',
       type,
+      difficulty,
       totalRounds,
       currentRound: 1,
       words,
@@ -193,7 +209,7 @@ export function useBattleRoom(groupId: string | undefined, battleId: string | un
       return;
     }
 
-    const words = getRandomWords(300);
+    const words = getRandomWords(300, battle.difficulty);
     const startT = new Date(Date.now() + 5000);
     
     let pairings = battle.pairings || {};
