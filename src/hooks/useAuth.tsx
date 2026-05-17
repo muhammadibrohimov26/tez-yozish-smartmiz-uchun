@@ -25,7 +25,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (u) {
         const snap = await getDoc(doc(db, 'typingUsers', u.uid));
         if (snap.exists()) {
-          setProfile(snap.data() as UserProfile);
+          const data = snap.data() as UserProfile;
+          if (u.email === 'muhammadibrohimov0306@gmail.com') {
+             data.isAdmin = true;
+          }
+          setProfile(data);
         }
       } else {
         setProfile(null);
@@ -53,10 +57,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           totalTests: 0,
           totalCorrectChars: 0,
         };
+        if (u.email === 'muhammadibrohimov0306@gmail.com') {
+           newProfile.isAdmin = true;
+        }
         await setDoc(userRef, newProfile);
         setProfile(newProfile);
       } else {
-        setProfile(snap.data() as UserProfile);
+        const data = snap.data() as UserProfile;
+        if (u.email === 'muhammadibrohimov0306@gmail.com') {
+           data.isAdmin = true;
+        }
+        setProfile(data);
       }
     } catch (err: any) {
       if (err.code !== 'auth/popup-closed-by-user') {

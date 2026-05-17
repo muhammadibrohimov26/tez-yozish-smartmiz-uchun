@@ -33,6 +33,7 @@ export interface UserProfile {
   bestWpm: number;
   totalTests: number;
   totalCorrectChars: number;
+  isAdmin?: boolean;
 }
 
 export interface Group {

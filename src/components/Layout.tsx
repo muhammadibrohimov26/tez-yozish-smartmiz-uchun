@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Zap, Home, Trophy, Users, User, LogOut, LogIn } from 'lucide-react';
+import { Zap, Home, Trophy, Users, User, LogOut, LogIn, Shield } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 
 export default function Layout({ children, isDarkMode, setIsDarkMode, themeColor }: {
@@ -18,6 +18,10 @@ export default function Layout({ children, isDarkMode, setIsDarkMode, themeColor
     { path: '/groups', icon: Users, label: 'Guruhlar', auth: true },
     { path: '/profile', icon: User, label: 'Profil', auth: true },
   ];
+
+  if (profile?.isAdmin) {
+    navItems.push({ path: '/admin', icon: Shield, label: 'Admin', auth: true });
+  }
 
   return (
     <div className={`min-h-screen font-sans transition-colors duration-500 ${isDarkMode ? 'bg-[#0a0a0f] text-white' : 'bg-gray-50 text-gray-900'}`}>
