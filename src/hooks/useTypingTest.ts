@@ -64,7 +64,7 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
 
   const playSound = (type: 'incorrect' | 'finish') => {
     try {
-      const ctx = new AudioContext();
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.connect(gain);
@@ -83,6 +83,10 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
         setTimeout(() => { osc.frequency.value = 784; }, 300);
         osc.stop(ctx.currentTime + 0.5);
       }
+
+      osc.onended = () => {
+        ctx.close().catch(() => {});
+      };
     } catch {}
   };
 
@@ -127,6 +131,18 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
     const saved = JSON.parse(localStorage.getItem('typing_history') || '[]');
     const updated = [newResult, ...saved].slice(0, 20);
     localStorage.setItem('typing_history', JSON.stringify(updated));
+
+    // Save daily streak date
+    try {
+      const today = new Date().toDateString();
+      const streakDates = JSON.parse(localStorage.getItem('typing_streak_dates') || '[]') as string[];
+      if (!streakDates.includes(today)) {
+        streakDates.push(today);
+        localStorage.setItem('typing_streak_dates', JSON.stringify(streakDates));
+      }
+    } catch (e) {
+      console.error('Error saving streak date:', e);
+    }
 
     // Save to Firebase if logged in
     if (opts.userId) {

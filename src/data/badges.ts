@@ -36,35 +36,32 @@ export function getEarnedBadges(stats: { totalTests: number; bestWpm: number; av
 }
 
 export function getStreak(): number {
-  const history = JSON.parse(localStorage.getItem('typing_history') || '[]');
-  if (history.length === 0) return 0;
-
-  const dates = new Set<string>();
-  history.forEach((r: any) => {
-    if (r.date) {
-      // Extract date from stored results
-      const today = new Date();
-      dates.add(today.toDateString());
-    }
-  });
-
-  // Check streaks from stored dates
   const streakDates = JSON.parse(localStorage.getItem('typing_streak_dates') || '[]') as string[];
-  const today = new Date().toDateString();
-  if (!streakDates.includes(today) && history.length > 0) {
-    streakDates.push(today);
-    localStorage.setItem('typing_streak_dates', JSON.stringify(streakDates));
+  if (streakDates.length === 0) return 0;
+
+  const todayStr = new Date().toDateString();
+  const yesterdayStr = new Date(Date.now() - 86400000).toDateString();
+  
+  // If the user hasn't typed today and didn't type yesterday, the streak is broken
+  if (!streakDates.includes(todayStr) && !streakDates.includes(yesterdayStr)) {
+    return 0;
   }
 
-  // Count consecutive days from today backwards
+  // Count consecutive days from today or yesterday backwards
   let streak = 0;
   const now = new Date();
+  
+  // If they typed yesterday but haven't typed yet today, start counting from yesterday
+  if (!streakDates.includes(todayStr) && streakDates.includes(yesterdayStr)) {
+    now.setDate(now.getDate() - 1);
+  }
+  
   for (let i = 0; i < 365; i++) {
     const d = new Date(now);
     d.setDate(d.getDate() - i);
     if (streakDates.includes(d.toDateString())) {
       streak++;
-    } else if (i > 0) {
+    } else {
       break;
     }
   }

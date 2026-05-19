@@ -19,6 +19,7 @@ export default function BattleRoom({ isDarkMode, themeColor = 'blue' }: { isDark
   const [incorrectChars, setIncorrectChars] = useState(0);
   const [timeLeftToStart, setTimeLeftToStart] = useState<number | null>(null);
   const [timeLeftInRound, setTimeLeftInRound] = useState<number>(60);
+  const [transitionTime, setTransitionTime] = useState<number | null>(null);
   
   const inputRef = useRef<HTMLInputElement>(null);
   const startTimeRef = useRef<number>(0);
@@ -37,16 +38,33 @@ export default function BattleRoom({ isDarkMode, themeColor = 'blue' }: { isDark
   const me = user ? battle?.participants[user.uid] : null;
 
   useEffect(() => {
-    if (battle?.status === 'round_active' && battle.startTime) {
+    if (battle?.status === 'round_active') {
+      if (transitionTime === null) {
+        setTransitionTime(Date.now());
+      }
+    } else {
+      setTransitionTime(null);
+    }
+  }, [battle?.status, transitionTime]);
+
+  useEffect(() => {
+    if (battle?.status === 'round_active' && battle.startTime && transitionTime !== null) {
       const st = battle.startTime.toDate ? battle.startTime.toDate().getTime() : new Date(battle.startTime).getTime();
+      // If the scheduled start was more than 10 seconds ago, they joined late
+      const isLateJoin = (Date.now() - st) > 10000;
+      
       const interval = setInterval(() => {
         const now = Date.now();
-        const diffToStart = Math.max(0, Math.ceil((st - now) / 1000));
+        const diffToStart = isLateJoin
+          ? Math.max(0, Math.ceil((st - now) / 1000))
+          : Math.max(0, Math.ceil((transitionTime + 5000 - now) / 1000));
+          
         setTimeLeftToStart(diffToStart > 0 ? diffToStart : null);
         
         if (diffToStart === 0) {
           if (startTimeRef.current === 0) {
-            startTimeRef.current = Date.now();
+            // Set start time of typing
+            startTimeRef.current = isLateJoin ? st : transitionTime + 5000;
             if (inputRef.current) inputRef.current.focus();
           }
           
@@ -70,10 +88,10 @@ export default function BattleRoom({ isDarkMode, themeColor = 'blue' }: { isDark
         startTimeRef.current = 0;
       }
     }
-  }, [battle?.status, battle?.startTime, user, me?.isFinished]);
+  }, [battle?.status, battle?.startTime, transitionTime, user, me?.isFinished]);
 
   useEffect(() => {
-    if (battle?.status === 'starting' || battle?.status === 'round_finished') {
+    if (battle?.status === 'starting' || battle?.status === 'round_finished' || battle?.status === 'round_active') {
       setCurrentWordIndex(0);
       setUserInput('');
       setCorrectChars(0);
@@ -300,7 +318,7 @@ export default function BattleRoom({ isDarkMode, themeColor = 'blue' }: { isDark
               </div>
               <input ref={inputRef} type="text" value={userInput} onChange={handleInput} onKeyDown={handleKeyDown}
                   autoFocus disabled={!isTypingActive}
-                  className={`w-full bg-transparent border-b-4 pb-4 text-3xl text-center focus:outline-none transition-all duration-300 ${isDarkMode ? 'placeholder:text-white/10 border-white/20 focus:border-blue-500' : 'placeholder:text-gray-200 border-gray-200 focus:border-blue-500'}`}
+                  className={`w-full bg-transparent border-b-4 pb-4 text-3xl text-center focus:outline-none transition-all duration-300 disabled:bg-transparent disabled:opacity-40 disabled:cursor-not-allowed ${isDarkMode ? 'text-white placeholder:text-white/10 border-white/20 focus:border-blue-500' : 'text-gray-900 placeholder:text-gray-200 border-gray-200 focus:border-blue-500'}`}
                   placeholder="Shu yerga yozing..." />
              </div>
           )}

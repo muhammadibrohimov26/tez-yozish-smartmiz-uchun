@@ -29,7 +29,7 @@ export default function KeyboardHeatmap({ charErrors, isDarkMode }: { charErrors
         {KEYBOARD_ROWS.map((row, ri) => (
           <div key={ri} className="flex gap-1.5" style={{ marginLeft: ri * 16 }}>
             {row.map(char => (
-              <div key={char} className={`w-9 h-9 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center text-xs sm:text-sm font-bold transition-all ${getColor(char)}`}>
+              <div key={char} className={`w-9 h-9 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center text-xs sm:text-sm font-bold transition-all relative ${getColor(char)}`}>
                 {char}
                 {(charErrors[char] || 0) > 0 && (
                   <span className="text-[8px] absolute -top-1 -right-1 bg-rose-500 text-white rounded-full w-4 h-4 flex items-center justify-center">{charErrors[char]}</span>

@@ -16,7 +16,7 @@ export default function Login({ isDarkMode, themeColor }: { isDarkMode: boolean;
         <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center mx-auto mb-6 shadow-lg shadow-blue-500/30 text-2xl">
           ⚡
         </div>
-        <h1 className="text-3xl font-display font-black tracking-tighter mb-2">Our smartmiz</h1>
+        <h1 className="text-3xl font-display font-black tracking-tighter mb-2">SMARTMIZ</h1>
         <p className={`text-sm mb-8 ${isDarkMode ? 'opacity-40' : 'text-gray-500'}`}>
           Tez yozish platformasiga kirish
         </p>
