@@ -20,6 +20,7 @@ export default function BattleRoom({ isDarkMode, themeColor = 'blue' }: { isDark
   const [timeLeftToStart, setTimeLeftToStart] = useState<number | null>(null);
   const [timeLeftInRound, setTimeLeftInRound] = useState<number>(60);
   const [transitionTime, setTransitionTime] = useState<number | null>(null);
+  const [wasPresentForTransition, setWasPresentForTransition] = useState(false);
   
   const inputRef = useRef<HTMLInputElement>(null);
   const startTimeRef = useRef<number>(0);
@@ -38,6 +39,12 @@ export default function BattleRoom({ isDarkMode, themeColor = 'blue' }: { isDark
   const me = user ? battle?.participants[user.uid] : null;
 
   useEffect(() => {
+    if (battle?.status === 'waiting' || battle?.status === 'starting') {
+      setWasPresentForTransition(true);
+    }
+  }, [battle?.status]);
+
+  useEffect(() => {
     if (battle?.status === 'round_active') {
       if (transitionTime === null) {
         setTransitionTime(Date.now());
@@ -50,8 +57,9 @@ export default function BattleRoom({ isDarkMode, themeColor = 'blue' }: { isDark
   useEffect(() => {
     if (battle?.status === 'round_active' && battle.startTime && transitionTime !== null) {
       const st = battle.startTime.toDate ? battle.startTime.toDate().getTime() : new Date(battle.startTime).getTime();
-      // If the scheduled start was more than 10 seconds ago, they joined late
-      const isLateJoin = (Date.now() - st) > 10000;
+      // If the user was in the room before the round started, they are not a late joiner.
+      // This avoids clock sync issues between the host and clients.
+      const isLateJoin = !wasPresentForTransition;
       
       const interval = setInterval(() => {
         const now = Date.now();
