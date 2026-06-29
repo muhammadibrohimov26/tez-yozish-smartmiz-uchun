@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../hooks/useAuth';
-import { Pencil, Check, X, Palette } from 'lucide-react';
+import { Pencil, Check, X, Palette, Shield, Trash2 } from 'lucide-react';
 import { BADGES, getEarnedBadges, getStreak } from '../data/badges';
 import { THEMES, getTheme, setTheme as saveTheme } from '../data/themes';
 import type { ThemeColor, TestResult } from '../types';
@@ -15,6 +15,27 @@ export default function Profile({ isDarkMode, onThemeChange }: { isDarkMode: boo
   const [showThemes, setShowThemes] = useState(false);
   const [currentTheme, setCurrentTheme] = useState<ThemeColor>(getTheme());
   const card = `rounded-[24px] border p-6 ${isDarkMode ? 'border-white/5 bg-white/5' : 'border-gray-200 bg-white'}`;
+
+  const isOwner = profile?.email === 'muhammadibrohimov0306@gmail.com' || profile?.isAdmin === true;
+
+  const resetOwnerStats = async () => {
+    if (!profile?.uid) return;
+    if (window.confirm("Barcha statistikalaringizni 0 ga tushirishni tasdiqlaysizmi? (Firestore va Mahalliy tarix tozalanadi)")) {
+      try {
+        await updateDoc(doc(db, 'typingUsers', profile.uid), {
+          averageWpm: 0,
+          bestWpm: 0,
+          totalTests: 0,
+          totalCorrectChars: 0
+        });
+        localStorage.removeItem('typing_history');
+        localStorage.removeItem('typing_streak_dates');
+        window.location.reload();
+      } catch (e) {
+        console.error("Xatolik reytingni tozalashda:", e);
+      }
+    }
+  };
 
   // History for progress chart
   const [history, setHistory] = useState<TestResult[]>([]);
@@ -183,6 +204,26 @@ export default function Profile({ isDarkMode, onThemeChange }: { isDarkMode: boo
           ))}
         </div>
       </div>
+
+      {/* Developer Options for Owner */}
+      {isOwner && (
+        <div className={card}>
+          <div className="flex items-center gap-2 mb-4">
+            <Shield className="w-5 h-5 text-green-500 animate-pulse" />
+            <h3 className="text-sm font-display font-bold text-green-500 uppercase tracking-wider">Developer sozlamalari</h3>
+          </div>
+          <p className={`text-xs mb-4 ${isDarkMode ? 'opacity-40' : 'text-gray-500'}`}>
+            Tizim egasi sifatida statistika va reytingingizni tozalab, nol holatga keltirishingiz mumkin.
+          </p>
+          <button
+            onClick={resetOwnerStats}
+            className="flex items-center gap-2 py-3 px-4 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 border border-rose-500/20 hover:border-rose-500/40 rounded-2xl text-sm font-bold transition-all active:scale-95"
+          >
+            <Trash2 className="w-4 h-4" />
+            <span>Statistikalarni 0 ga tushirish (Reset)</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 }

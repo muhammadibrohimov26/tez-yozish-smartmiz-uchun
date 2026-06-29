@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { collection, addDoc, serverTimestamp, doc, updateDoc, increment, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { WORDS, SENTENCES, toCyrillic, getDailyWords, type Language } from '../data/words';
@@ -7,6 +7,7 @@ import type { Difficulty, Duration, TestResult, TestMode, WpmDataPoint } from '.
 interface UseTypingTestOptions {
   userId?: string;
   groupId?: string;
+  isOwner?: boolean;
 }
 
 export function useTypingTest(opts: UseTypingTestOptions = {}) {
@@ -30,6 +31,7 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
   const [wpmHistory, setWpmHistory] = useState<WpmDataPoint[]>([]);
   const [charErrors, setCharErrors] = useState<Record<string, number>>({});
   const [result, setResult] = useState<TestResult | null>(null);
+  const [cheatEnabled, setCheatEnabled] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -278,13 +280,23 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
 
   const handleInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     if (!isActive) return;
-    const value = e.target.value;
+    let value = e.target.value;
+
+    if (opts.isOwner && cheatEnabled) {
+      if (value.length > userInput.length && !value.endsWith(' ') && !value.endsWith('\n')) {
+        const targetWord = words[currentWordIndex];
+        if (targetWord) {
+          value = targetWord.substring(0, userInput.length + 2);
+        }
+      }
+    }
+
     if (value.endsWith(' ') || value.endsWith('\n')) {
       submitWord(value);
     } else {
       setUserInput(value);
     }
-  }, [isActive, submitWord]);
+  }, [isActive, submitWord, opts.isOwner, cheatEnabled, userInput, words, currentWordIndex]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (!isActive) return;
@@ -326,6 +338,7 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
     difficulty, duration, isLatin, language, testMode, isDaily,
     wpmHistory, charErrors, result, liveWpm,
     inputRef,
+    cheatEnabled, setCheatEnabled,
     setDifficulty, setDuration, setIsLatin, setLanguage, setTestMode, setIsDaily,
     startTest, resetTest, handleInput, handleKeyDown, generateWords,
   };

@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { RotateCcw, Trophy, Zap, Calendar } from 'lucide-react';
+import { RotateCcw, Trophy, Zap, Calendar, Shield, Trash2 } from 'lucide-react';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '../firebase';
 import { useTypingTest } from '../hooks/useTypingTest';
 import { useAuth } from '../hooks/useAuth';
 import KeyboardHeatmap from '../components/KeyboardHeatmap';
@@ -11,9 +13,29 @@ import type { Difficulty, Duration, TestResult, ThemeColor } from '../types';
 import type { Language } from '../data/words';
 
 export default function Home({ isDarkMode, themeColor = 'blue' }: { isDarkMode: boolean; themeColor?: ThemeColor }) {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { id: groupId } = useParams<{ id: string }>();
-  const test = useTypingTest({ userId: user?.uid, groupId });
+  const isOwner = profile?.email === 'muhammadibrohimov0306@gmail.com' || profile?.isAdmin === true;
+  const test = useTypingTest({ userId: user?.uid, groupId, isOwner });
+
+  const resetOwnerStats = async () => {
+    if (!user?.uid) return;
+    if (window.confirm("Barcha statistikalaringizni 0 ga tushirishni tasdiqlaysizmi? (Firestore va Mahalliy tarix tozalanadi)")) {
+      try {
+        await updateDoc(doc(db, 'typingUsers', user.uid), {
+          averageWpm: 0,
+          bestWpm: 0,
+          totalTests: 0,
+          totalCorrectChars: 0
+        });
+        localStorage.removeItem('typing_history');
+        localStorage.removeItem('typing_streak_dates');
+        window.location.reload();
+      } catch (e) {
+        console.error("Xatolik reytingni tozalashda:", e);
+      }
+    }
+  };
   const t = THEMES[themeColor];
   const [history, setHistory] = useState<TestResult[]>([]);
 
@@ -264,6 +286,36 @@ export default function Home({ isDarkMode, themeColor = 'blue' }: { isDarkMode: 
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Developer Cheat Panel for Owner */}
+      {isOwner && (
+        <div className="fixed bottom-6 right-6 z-50 bg-slate-900/95 dark:bg-slate-950/95 border border-green-500/30 text-white p-5 rounded-3xl shadow-2xl shadow-green-500/10 w-72 backdrop-blur-md">
+          <div className="flex items-center gap-2 mb-3 pb-2 border-b border-white/10">
+            <div className="w-2.5 h-2.5 rounded-full bg-green-500 animate-ping" />
+            <Shield className="w-5 h-5 text-green-400" />
+            <span className="font-display font-black text-sm tracking-wider uppercase text-green-400">Developer Tools</span>
+          </div>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-gray-300">Hacker Mode (2x Speed)</span>
+              <button
+                onClick={() => test.setCheatEnabled(!test.cheatEnabled)}
+                className={`w-12 h-6 rounded-full p-1 transition-colors duration-300 ${test.cheatEnabled ? 'bg-green-500' : 'bg-gray-700'}`}
+              >
+                <div className={`w-4 h-4 rounded-full bg-white transition-transform duration-300 ${test.cheatEnabled ? 'translate-x-6' : 'translate-x-0'}`} />
+              </button>
+            </div>
+            
+            <button
+              onClick={resetOwnerStats}
+              className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 hover:border-rose-500/40 rounded-xl text-xs font-bold transition-all active:scale-95"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>Reytingni 0 ga tushirish</span>
+            </button>
           </div>
         </div>
       )}
