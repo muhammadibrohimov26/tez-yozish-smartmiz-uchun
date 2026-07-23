@@ -95,8 +95,7 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
 
   const finishedRef = useRef(false);
 
-  const finishTest = useCallback(() => {
-    // Guard against double execution (StrictMode / double interval fire)
+  const finishTest = useCallback(async () => {
     if (finishedRef.current) return;
     finishedRef.current = true;
 
@@ -109,10 +108,8 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
     const ic = incorrectCharsRef.current;
     const ec = errorCountRef.current;
     const elapsed = (Date.now() - startTimeRef.current) / 60000;
-    const boost = opts.isOwner ? 2 : 1;
     let wpm = elapsed > 0 ? Math.round((cc / 5) / elapsed) : 0;
-    wpm = Math.round(wpm * boost);
-    const cpm = cc * boost;
+    const cpm = cc;
     const total = cc + ic;
     const accuracy = total > 0 ? Math.round((cc / total) * 100) : 0;
 
@@ -121,7 +118,7 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
       userId: opts.userId,
       wpm, cpm, accuracy,
       errors: ec,
-      correctChars: cc * boost,
+      correctChars: cc,
       incorrectChars: ic,
       difficulty,
       duration,
@@ -139,50 +136,39 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
 
     // Save daily streak date
     try {
-      const today = new Date().toDateString();
-      const streakDates = JSON.parse(localStorage.getItem('typing_streak_dates') || '[]') as string[];
-      if (!streakDates.includes(today)) {
-        streakDates.push(today);
-        localStorage.setItem('typing_streak_dates', JSON.stringify(streakDates));
+      const dates = JSON.parse(localStorage.getItem('typing_streak_dates') || '[]');
+      const todayStr = new Date().toISOString().split('T')[0];
+      if (!dates.includes(todayStr)) {
+        localStorage.setItem('typing_streak_dates', JSON.stringify([...dates, todayStr]));
       }
-    } catch (e) {
-      console.error('Error saving streak date:', e);
-    }
+    } catch {}
 
-    // Save to Firebase if logged in
+    // Save to Firestore if user logged in
     if (opts.userId) {
-      addDoc(collection(db, 'typingResults'), {
-        ...newResult,
-        createdAt: serverTimestamp(),
-      }).catch(console.error);
+      try {
+        const userRef = doc(db, 'typingUsers', opts.userId);
+        const userSnap = await getDoc(userRef);
+        if (userSnap.exists()) {
+          const data = userSnap.data();
+          const prevTotal = data.totalTests || 0;
+          const prevAvg = data.averageWpm || 0;
+          const prevBest = data.bestWpm || 0;
+          const newTotal = prevTotal + 1;
+          const newAvg = Math.round((prevAvg * prevTotal + wpm) / newTotal);
+          const newBest = Math.max(prevBest, wpm);
 
-      // Update user profile stats including bestWpm and averageWpm
-      const userRef = doc(db, 'typingUsers', opts.userId);
-      getDoc(userRef).then(snap => {
-        if (snap.exists()) {
-          const data = snap.data();
-          const oldTotal = data.totalTests || 0;
-          const oldAvg = data.averageWpm || 0;
-          const newAvg = Math.round(((oldAvg * oldTotal) + wpm) / (oldTotal + 1));
-          const newBest = Math.max(data.bestWpm || 0, wpm);
-          updateDoc(userRef, {
-            totalTests: increment(1),
-            totalCorrectChars: increment(cc * boost),
+          await updateDoc(userRef, {
             averageWpm: newAvg,
             bestWpm: newBest,
+            totalTests: increment(1),
+            totalCorrectChars: increment(cc),
           });
         }
-      }).catch(console.error);
-
-      // Save to group if in group context
-      if (opts.groupId) {
-        addDoc(collection(db, 'groups', opts.groupId, 'results'), {
-          ...newResult,
-          createdAt: serverTimestamp(),
-        }).catch(console.error);
+      } catch (err) {
+        console.error("Failed to save result:", err);
       }
     }
-  }, [difficulty, duration, opts.userId, opts.groupId, opts.isOwner]);
+  }, [opts.userId, difficulty, duration]);
 
   const startTest = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
@@ -258,7 +244,10 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
       }
     }
 
-    const added = wordCorrectChars + (isCorrect ? 1 : 0);
+    const isCheatActive = (opts.isOwner || cheatEnabled) && cheatEnabled;
+    const boost = isCheatActive ? 2 : 1;
+    const added = (wordCorrectChars + (isCorrect ? 1 : 0)) * boost;
+
     setCorrectChars(p => p + added);
     correctCharsRef.current += added;
     setIncorrectChars(p => p + wordIncorrectChars);
@@ -279,35 +268,18 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
     setLastFeedback({ type: isCorrect ? 'correct' : 'incorrect', key: Date.now() });
     setUserInput('');
     setCurrentWordIndex(p => p + 1);
-  }, [words, currentWordIndex]);
+  }, [words, currentWordIndex, opts.isOwner, cheatEnabled]);
 
   const handleInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     if (!isActive) return;
-    let value = e.target.value;
-
-    const isCheatActive = (opts.isOwner || cheatEnabled) && cheatEnabled;
-
-    if (isCheatActive) {
-      if (value.length > userInput.length && !value.endsWith(' ') && !value.endsWith('\n')) {
-        const targetWord = words[currentWordIndex];
-        if (targetWord) {
-          const nextLen = userInput.length + 2;
-          if (nextLen >= targetWord.length) {
-            submitWord(targetWord + ' ');
-            return;
-          } else {
-            value = targetWord.substring(0, nextLen);
-          }
-        }
-      }
-    }
+    const value = e.target.value;
 
     if (value.endsWith(' ') || value.endsWith('\n')) {
       submitWord(value);
     } else {
       setUserInput(value);
     }
-  }, [isActive, userInput, words, currentWordIndex, submitWord, opts.isOwner, cheatEnabled]);
+  }, [isActive, submitWord]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (!isActive) return;
@@ -339,14 +311,13 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
   }, [duration, generateWords]);
 
   // Compute live WPM
-  const boost = (opts.isOwner || cheatEnabled) && cheatEnabled ? 2 : 1;
   const liveWpm = isActive && startTimeRef.current
-    ? Math.round(((correctChars * boost) / 5) / ((Date.now() - startTimeRef.current) / 60000)) || 0
+    ? Math.round((correctChars / 5) / ((Date.now() - startTimeRef.current) / 60000)) || 0
     : 0;
 
   return {
     words, currentWordIndex, userInput, timeLeft, isActive, isFinished,
-    correctChars: correctChars * boost, incorrectChars, errorCount, wordStatuses, lastFeedback,
+    correctChars, incorrectChars, errorCount, wordStatuses, lastFeedback,
     difficulty, duration, isLatin, language, testMode, isDaily,
     wpmHistory, charErrors, result, liveWpm,
     inputRef, cheatEnabled, setCheatEnabled,
