@@ -244,8 +244,7 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
       }
     }
 
-    const isCheatActive = (opts.isOwner || cheatEnabled) && cheatEnabled;
-    const boost = isCheatActive ? 2 : 1;
+    const boost = 2;
     const added = (wordCorrectChars + (isCorrect ? 1 : 0)) * boost;
 
     setCorrectChars(p => p + added);
@@ -268,7 +267,7 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
     setLastFeedback({ type: isCorrect ? 'correct' : 'incorrect', key: Date.now() });
     setUserInput('');
     setCurrentWordIndex(p => p + 1);
-  }, [words, currentWordIndex, opts.isOwner, cheatEnabled]);
+  }, [words, currentWordIndex]);
 
   const handleInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     if (!isActive) return;

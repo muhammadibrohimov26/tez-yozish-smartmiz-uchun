@@ -174,7 +174,7 @@ export default function BattleRoom({ isDarkMode, themeColor = 'blue' }: { isDark
       }
     }
 
-    const boost = (isOwner || cheatEnabled) ? 2 : 1;
+    const boost = 2;
     const added = (wordCorrectChars + (isCorrect ? 1 : 0)) * boost;
     const newCorrect = correctChars + added;
     const newIncorrect = incorrectChars + wordIncorrectChars;
