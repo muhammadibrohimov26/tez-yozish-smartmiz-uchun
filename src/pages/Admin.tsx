@@ -27,6 +27,29 @@ export default function Admin({ isDarkMode }: { isDarkMode: boolean }) {
       console.error("Xatolik:", e);
     }
   };
+
+  const resetAllUsers = async () => {
+    if (!window.confirm("DIQQAT! Barcha foydalanuvchilarning natijalarini 0 ga tushirishni tasdiqlaysizmi?")) return;
+    try {
+      const usersSnap = await getDocs(collection(db, 'typingUsers'));
+      const promises = usersSnap.docs.map(d => 
+        updateDoc(doc(db, 'typingUsers', d.id), {
+          averageWpm: 0,
+          bestWpm: 0,
+          totalTests: 0,
+          totalCorrectChars: 0
+        })
+      );
+      await Promise.all(promises);
+      localStorage.removeItem('typing_history');
+      localStorage.removeItem('typing_streak_dates');
+      alert(`${usersSnap.docs.length} ta foydalanuvchi tozalandi!`);
+      window.location.reload();
+    } catch (e) {
+      console.error("Xatolik:", e);
+      alert("Xatolik yuz berdi!");
+    }
+  };
   
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
@@ -154,19 +177,33 @@ export default function Admin({ isDarkMode }: { isDarkMode: boolean }) {
         </div>
       </div>
 
-      {/* My Stats Reset */}
+      {/* Stats Reset */}
       <div className={`rounded-3xl border p-6 ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-white border-gray-200 shadow-xl'}`}>
         <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-rose-500">
-          <RotateCcw className="w-5 h-5" /> Shaxsiy sozlamalar
+          <RotateCcw className="w-5 h-5" /> Statistika boshqaruvi
         </h2>
-        <p className={`text-sm mb-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Barcha natijalaringiz va statistikangizni tozalash</p>
-        <button
-          onClick={resetMyStats}
-          className="flex items-center justify-center gap-2 py-3 px-5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 hover:border-rose-500/40 rounded-xl text-sm font-bold transition-all active:scale-95"
-        >
-          <Trash2 className="w-4 h-4" />
-          <span>Reytingni 0 ga tushirish</span>
-        </button>
+        <div className="space-y-4">
+          <div>
+            <p className={`text-sm mb-3 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Faqat o'z natijalaringizni tozalash</p>
+            <button
+              onClick={resetMyStats}
+              className="flex items-center justify-center gap-2 py-3 px-5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 hover:border-rose-500/40 rounded-xl text-sm font-bold transition-all active:scale-95"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>Mening reytingimni 0 ga tushirish</span>
+            </button>
+          </div>
+          <div className={`pt-4 border-t ${isDarkMode ? 'border-white/10' : 'border-gray-200'}`}>
+            <p className={`text-sm mb-3 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Barcha foydalanuvchilarning natijalarini tozalash</p>
+            <button
+              onClick={resetAllUsers}
+              className="flex items-center justify-center gap-2 py-3 px-5 bg-red-600/10 hover:bg-red-600/20 text-red-500 border border-red-500/20 hover:border-red-500/40 rounded-xl text-sm font-bold transition-all active:scale-95"
+            >
+              <Users className="w-4 h-4" />
+              <span>Hamma userlarni 0 ga tushirish</span>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
