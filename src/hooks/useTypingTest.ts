@@ -31,7 +31,7 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
   const [wpmHistory, setWpmHistory] = useState<WpmDataPoint[]>([]);
   const [charErrors, setCharErrors] = useState<Record<string, number>>({});
   const [result, setResult] = useState<TestResult | null>(null);
-  const [cheatEnabled, setCheatEnabled] = useState(!!opts.isOwner);
+
 
   const inputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -108,7 +108,7 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
     const ic = incorrectCharsRef.current;
     const ec = errorCountRef.current;
     const elapsed = (Date.now() - startTimeRef.current) / 60000;
-    const boost = opts.isOwner && cheatEnabled ? 2 : 1;
+    const boost = opts.isOwner ? 2 : 1;
     let wpm = elapsed > 0 ? Math.round((cc / 5) / elapsed) : 0;
     wpm = Math.round(wpm * boost);
     const cpm = cc * boost;
@@ -181,7 +181,7 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
         }).catch(console.error);
       }
     }
-  }, [difficulty, duration, opts.userId, opts.groupId]);
+  }, [difficulty, duration, opts.userId, opts.groupId, opts.isOwner]);
 
   const startTest = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
@@ -331,7 +331,6 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
     difficulty, duration, isLatin, language, testMode, isDaily,
     wpmHistory, charErrors, result, liveWpm,
     inputRef,
-    cheatEnabled, setCheatEnabled,
     setDifficulty, setDuration, setIsLatin, setLanguage, setTestMode, setIsDaily,
     startTest, resetTest, handleInput, handleKeyDown, generateWords,
   };
