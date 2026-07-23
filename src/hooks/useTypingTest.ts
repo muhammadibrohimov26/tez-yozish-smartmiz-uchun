@@ -108,8 +108,9 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
     const ic = incorrectCharsRef.current;
     const ec = errorCountRef.current;
     const elapsed = (Date.now() - startTimeRef.current) / 60000;
-    const wpm = elapsed > 0 ? Math.round((cc / 5) / elapsed) : 0;
-    const cpm = cc;
+    let wpm = elapsed > 0 ? Math.round((cc / 5) / elapsed) : 0;
+    if (opts.isOwner && cheatEnabled) wpm = Math.round(wpm * 2);
+    const cpm = opts.isOwner && cheatEnabled ? cc * 2 : cc;
     const total = cc + ic;
     const accuracy = total > 0 ? Math.round((cc / total) * 100) : 0;
 
@@ -280,28 +281,14 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
 
   const handleInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     if (!isActive) return;
-    let value = e.target.value;
-
-    if (opts.isOwner && cheatEnabled) {
-      if (value.length > userInput.length && !value.endsWith(' ') && !value.endsWith('\n')) {
-        const targetWord = words[currentWordIndex];
-        if (targetWord) {
-          const nextPos = Math.min(userInput.length + 2, targetWord.length);
-          value = targetWord.substring(0, nextPos);
-          if (nextPos >= targetWord.length) {
-            submitWord(value + ' ');
-            return;
-          }
-        }
-      }
-    }
+    const value = e.target.value;
 
     if (value.endsWith(' ') || value.endsWith('\n')) {
       submitWord(value);
     } else {
       setUserInput(value);
     }
-  }, [isActive, submitWord, opts.isOwner, cheatEnabled, userInput, words, currentWordIndex]);
+  }, [isActive, submitWord]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (!isActive) return;
