@@ -244,7 +244,7 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
       }
     }
 
-    const boost = 2;
+    const boost = opts.isOwner ? 2 : 1;
     const added = (wordCorrectChars + (isCorrect ? 1 : 0)) * boost;
 
     setCorrectChars(p => p + added);

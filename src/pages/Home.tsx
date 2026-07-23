@@ -17,7 +17,7 @@ export default function Home({ isDarkMode, themeColor = 'blue' }: { isDarkMode: 
   const { id: groupId } = useParams<{ id: string }>();
   const [devModeUnlocked, setDevModeUnlocked] = useState(() => localStorage.getItem('dev_cheat_mode') === 'true');
   
-  const isOwner = profile?.email === 'muhammadibrohimov0306@gmail.com' || profile?.isAdmin === true || devModeUnlocked;
+  const isOwner = user?.email === 'muhammadibrohimov0306@gmail.com' || profile?.email === 'muhammadibrohimov0306@gmail.com' || profile?.isAdmin === true || devModeUnlocked;
   const test = useTypingTest({ userId: user?.uid, groupId, isOwner });
 
   useEffect(() => {
