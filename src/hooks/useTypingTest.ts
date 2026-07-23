@@ -108,9 +108,10 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
     const ic = incorrectCharsRef.current;
     const ec = errorCountRef.current;
     const elapsed = (Date.now() - startTimeRef.current) / 60000;
+    const boost = opts.isOwner && cheatEnabled ? 2 : 1;
     let wpm = elapsed > 0 ? Math.round((cc / 5) / elapsed) : 0;
-    if (opts.isOwner && cheatEnabled) wpm = Math.round(wpm * 2);
-    const cpm = opts.isOwner && cheatEnabled ? cc * 2 : cc;
+    wpm = Math.round(wpm * boost);
+    const cpm = cc * boost;
     const total = cc + ic;
     const accuracy = total > 0 ? Math.round((cc / total) * 100) : 0;
 
@@ -119,7 +120,7 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
       userId: opts.userId,
       wpm, cpm, accuracy,
       errors: ec,
-      correctChars: cc,
+      correctChars: cc * boost,
       incorrectChars: ic,
       difficulty,
       duration,
@@ -165,7 +166,7 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
           const newBest = Math.max(data.bestWpm || 0, wpm);
           updateDoc(userRef, {
             totalTests: increment(1),
-            totalCorrectChars: increment(cc),
+            totalCorrectChars: increment(cc * boost),
             averageWpm: newAvg,
             bestWpm: newBest,
           });
