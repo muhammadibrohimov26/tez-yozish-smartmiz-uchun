@@ -31,7 +31,7 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
   const [wpmHistory, setWpmHistory] = useState<WpmDataPoint[]>([]);
   const [charErrors, setCharErrors] = useState<Record<string, number>>({});
   const [result, setResult] = useState<TestResult | null>(null);
-  const [cheatEnabled, setCheatEnabled] = useState(false);
+  const [cheatEnabled, setCheatEnabled] = useState(!!opts.isOwner);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -286,7 +286,12 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
       if (value.length > userInput.length && !value.endsWith(' ') && !value.endsWith('\n')) {
         const targetWord = words[currentWordIndex];
         if (targetWord) {
-          value = targetWord.substring(0, userInput.length + 2);
+          const nextPos = Math.min(userInput.length + 2, targetWord.length);
+          value = targetWord.substring(0, nextPos);
+          if (nextPos >= targetWord.length) {
+            submitWord(value + ' ');
+            return;
+          }
         }
       }
     }

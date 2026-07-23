@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Zap, Home, Trophy, Users, User, LogOut, LogIn, Shield } from 'lucide-react';
+import { Zap, Home, Trophy, Users, User, LogOut, LogIn, Settings } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 
 export default function Layout({ children, isDarkMode, setIsDarkMode, themeColor }: {
@@ -20,7 +20,7 @@ export default function Layout({ children, isDarkMode, setIsDarkMode, themeColor
   ];
 
   if (profile?.isAdmin) {
-    navItems.push({ path: '/admin', icon: Shield, label: 'Admin', auth: true });
+    navItems.push({ path: '/settings', icon: Settings, label: 'Sozlamalar', auth: true });
   }
 
   return (

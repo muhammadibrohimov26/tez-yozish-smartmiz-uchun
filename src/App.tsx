@@ -41,7 +41,7 @@ function AppRoutes() {
         <Route path="/groups/:id/test" element={<ProtectedRoute><Home isDarkMode={isDarkMode} themeColor={themeColor} /></ProtectedRoute>} />
         <Route path="/groups/:id/battle/:battleId" element={<ProtectedRoute><BattleRoom isDarkMode={isDarkMode} themeColor={themeColor} /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><Profile isDarkMode={isDarkMode} onThemeChange={setThemeColor} /></ProtectedRoute>} />
-        <Route path="/admin" element={<ProtectedRoute><Admin isDarkMode={isDarkMode} /></ProtectedRoute>} />
+        <Route path="/settings" element={<ProtectedRoute><Admin isDarkMode={isDarkMode} /></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Layout>

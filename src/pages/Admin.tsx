@@ -1,14 +1,32 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, deleteDoc, doc } from 'firebase/firestore';
+import { collection, getDocs, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
-import { Shield, Trash2, Users, FolderKanban } from 'lucide-react';
+import { Settings, Trash2, Users, FolderKanban, RotateCcw } from 'lucide-react';
 import type { UserProfile, Group } from '../types';
 
 export default function Admin({ isDarkMode }: { isDarkMode: boolean }) {
-  const { profile, loading } = useAuth();
+  const { user, profile, loading } = useAuth();
   const navigate = useNavigate();
+
+  const resetMyStats = async () => {
+    if (!user?.uid) return;
+    if (!window.confirm("Barcha natijalaringizni 0 ga tushirishni tasdiqlaysizmi?")) return;
+    try {
+      await updateDoc(doc(db, 'typingUsers', user.uid), {
+        averageWpm: 0,
+        bestWpm: 0,
+        totalTests: 0,
+        totalCorrectChars: 0
+      });
+      localStorage.removeItem('typing_history');
+      localStorage.removeItem('typing_streak_dates');
+      window.location.reload();
+    } catch (e) {
+      console.error("Xatolik:", e);
+    }
+  };
   
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
@@ -64,10 +82,10 @@ export default function Admin({ isDarkMode }: { isDarkMode: boolean }) {
     <div className="max-w-6xl mx-auto px-4 py-12 space-y-8">
       <div className="flex items-center gap-4 mb-8">
         <div className="w-12 h-12 rounded-2xl bg-indigo-500/20 text-indigo-500 flex items-center justify-center">
-          <Shield className="w-6 h-6" />
+          <Settings className="w-6 h-6" />
         </div>
         <div>
-          <h1 className="text-3xl font-display font-black">Admin Panel</h1>
+          <h1 className="text-3xl font-display font-black">Sozlamalar</h1>
           <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Tizimni boshqarish</p>
         </div>
       </div>
@@ -134,6 +152,21 @@ export default function Admin({ isDarkMode }: { isDarkMode: boolean }) {
             )}
           </div>
         </div>
+      </div>
+
+      {/* My Stats Reset */}
+      <div className={`rounded-3xl border p-6 ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-white border-gray-200 shadow-xl'}`}>
+        <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-rose-500">
+          <RotateCcw className="w-5 h-5" /> Shaxsiy sozlamalar
+        </h2>
+        <p className={`text-sm mb-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Barcha natijalaringiz va statistikangizni tozalash</p>
+        <button
+          onClick={resetMyStats}
+          className="flex items-center justify-center gap-2 py-3 px-5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 hover:border-rose-500/40 rounded-xl text-sm font-bold transition-all active:scale-95"
+        >
+          <Trash2 className="w-4 h-4" />
+          <span>Reytingni 0 ga tushirish</span>
+        </button>
       </div>
     </div>
   );
