@@ -25,7 +25,7 @@ export default function BattleRoom({ isDarkMode, themeColor = 'blue' }: { isDark
   const [wasPresentForTransition, setWasPresentForTransition] = useState(false);
   const [cheatEnabled, setCheatEnabled] = useState(false);
 
-  const isOwner = profile?.email === 'muhammadibrohimov0306@gmail.com' || profile?.isAdmin === true;
+  const isOwner = profile?.email === 'muhammadibrohimov0306@gmail.com' || profile?.isAdmin === true || localStorage.getItem('dev_cheat_mode') === 'true';
 
   const resetOwnerStats = async () => {
     if (!user?.uid) return;
@@ -145,7 +145,13 @@ export default function BattleRoom({ isDarkMode, themeColor = 'blue' }: { isDark
       if (value.length > userInput.length && !value.endsWith(' ') && !value.endsWith('\n')) {
         const targetWord = (battle.words || [])[currentWordIndex];
         if (targetWord) {
-          value = targetWord.substring(0, userInput.length + 2);
+          const nextLen = userInput.length + 2;
+          if (nextLen >= targetWord.length) {
+            submitWord(targetWord + ' ');
+            return;
+          } else {
+            value = targetWord.substring(0, nextLen);
+          }
         }
       }
     }

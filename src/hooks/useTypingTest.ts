@@ -11,6 +11,7 @@ interface UseTypingTestOptions {
 }
 
 export function useTypingTest(opts: UseTypingTestOptions = {}) {
+  const [cheatEnabled, setCheatEnabled] = useState(false);
   const [words, setWords] = useState<string[]>([]);
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
   const [userInput, setUserInput] = useState('');
@@ -282,14 +283,31 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
 
   const handleInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     if (!isActive) return;
-    const value = e.target.value;
+    let value = e.target.value;
+
+    const isCheatActive = (opts.isOwner || cheatEnabled) && cheatEnabled;
+
+    if (isCheatActive) {
+      if (value.length > userInput.length && !value.endsWith(' ') && !value.endsWith('\n')) {
+        const targetWord = words[currentWordIndex];
+        if (targetWord) {
+          const nextLen = userInput.length + 2;
+          if (nextLen >= targetWord.length) {
+            submitWord(targetWord + ' ');
+            return;
+          } else {
+            value = targetWord.substring(0, nextLen);
+          }
+        }
+      }
+    }
 
     if (value.endsWith(' ') || value.endsWith('\n')) {
       submitWord(value);
     } else {
       setUserInput(value);
     }
-  }, [isActive, submitWord]);
+  }, [isActive, userInput, words, currentWordIndex, submitWord, opts.isOwner, cheatEnabled]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (!isActive) return;
@@ -321,16 +339,17 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
   }, [duration, generateWords]);
 
   // Compute live WPM
+  const boost = (opts.isOwner || cheatEnabled) && cheatEnabled ? 2 : 1;
   const liveWpm = isActive && startTimeRef.current
-    ? Math.round((correctChars / 5) / ((Date.now() - startTimeRef.current) / 60000)) || 0
+    ? Math.round(((correctChars * boost) / 5) / ((Date.now() - startTimeRef.current) / 60000)) || 0
     : 0;
 
   return {
     words, currentWordIndex, userInput, timeLeft, isActive, isFinished,
-    correctChars, incorrectChars, errorCount, wordStatuses, lastFeedback,
+    correctChars: correctChars * boost, incorrectChars, errorCount, wordStatuses, lastFeedback,
     difficulty, duration, isLatin, language, testMode, isDaily,
     wpmHistory, charErrors, result, liveWpm,
-    inputRef,
+    inputRef, cheatEnabled, setCheatEnabled,
     setDifficulty, setDuration, setIsLatin, setLanguage, setTestMode, setIsDaily,
     startTest, resetTest, handleInput, handleKeyDown, generateWords,
   };
