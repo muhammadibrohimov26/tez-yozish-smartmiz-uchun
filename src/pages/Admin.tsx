@@ -4,6 +4,7 @@ import { db } from '../firebase';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { Settings, Trash2, Users, FolderKanban, RotateCcw } from 'lucide-react';
+import { ZERO_STATS } from '../lib/resetStats';
 import type { UserProfile, Group } from '../types';
 
 export default function Admin({ isDarkMode }: { isDarkMode: boolean }) {
@@ -14,12 +15,7 @@ export default function Admin({ isDarkMode }: { isDarkMode: boolean }) {
     if (!user?.uid) return;
     if (!window.confirm("Barcha natijalaringizni 0 ga tushirishni tasdiqlaysizmi?")) return;
     try {
-      await updateDoc(doc(db, 'typingUsers', user.uid), {
-        averageWpm: 0,
-        bestWpm: 0,
-        totalTests: 0,
-        totalCorrectChars: 0
-      });
+      await updateDoc(doc(db, 'typingUsers', user.uid), ZERO_STATS);
       localStorage.removeItem('typing_history');
       localStorage.removeItem('typing_streak_dates');
       window.location.reload();
@@ -32,13 +28,8 @@ export default function Admin({ isDarkMode }: { isDarkMode: boolean }) {
     if (!window.confirm("DIQQAT! Barcha foydalanuvchilarning natijalarini 0 ga tushirishni tasdiqlaysizmi?")) return;
     try {
       const usersSnap = await getDocs(collection(db, 'typingUsers'));
-      const promises = usersSnap.docs.map(d => 
-        updateDoc(doc(db, 'typingUsers', d.id), {
-          averageWpm: 0,
-          bestWpm: 0,
-          totalTests: 0,
-          totalCorrectChars: 0
-        })
+      const promises = usersSnap.docs.map(d =>
+        updateDoc(doc(db, 'typingUsers', d.id), ZERO_STATS)
       );
       await Promise.all(promises);
       localStorage.removeItem('typing_history');

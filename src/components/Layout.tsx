@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Zap, Home, Trophy, Users, User, LogOut, LogIn, Settings } from 'lucide-react';
+import { Zap, Home, Trophy, Users, User, LogOut, LogIn, Settings, Sun, Moon } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 
 export default function Layout({ children, isDarkMode, setIsDarkMode, themeColor }: {
@@ -74,11 +74,19 @@ export default function Layout({ children, isDarkMode, setIsDarkMode, themeColor
           </div>
 
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => setIsDarkMode(!isDarkMode)}
+              aria-label={isDarkMode ? 'Yorug‘ rejimga o‘tish' : 'Tungi rejimga o‘tish'}
+              title={isDarkMode ? 'Yorug‘ rejim' : 'Tungi rejim'}
+              className={`p-2 rounded-lg transition-all ${isDarkMode ? 'text-white/40 hover:text-amber-300 hover:bg-white/5' : 'text-gray-400 hover:text-indigo-500 hover:bg-gray-100'}`}
+            >
+              {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </button>
             {user ? (
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-blue-500/30">
                   {profile?.photoURL ? (
-                    <img src={profile.photoURL} alt="" className="w-full h-full object-cover" />
+                    <img src={profile.photoURL} alt={profile.displayName || 'Avatar'} className="w-full h-full object-cover" />
                   ) : (
                     <div className={`w-full h-full flex items-center justify-center text-xs font-bold ${isDarkMode ? 'bg-blue-600/20 text-blue-400' : 'bg-blue-50 text-blue-600'}`}>
                       {profile?.displayName?.charAt(0) || 'U'}

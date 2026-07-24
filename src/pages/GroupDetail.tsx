@@ -125,7 +125,7 @@ export default function GroupDetail({ isDarkMode }: { isDarkMode: boolean }) {
               <div key={idx} className="flex flex-col items-center gap-2 w-28">
                 <span className={sizes[idx]}>{medals[idx]}</span>
                 <div className={`w-12 h-12 rounded-full overflow-hidden border-2 ${idx === 0 ? 'border-yellow-500' : idx === 1 ? 'border-gray-400' : 'border-amber-700'}`}>
-                  {m.photoURL ? <img src={m.photoURL} className="w-full h-full object-cover" /> :
+                  {m.photoURL ? <img src={m.photoURL} alt={m.displayName || 'Avatar'} className="w-full h-full object-cover" /> :
                     <div className="w-full h-full flex items-center justify-center text-lg font-black bg-gradient-to-br from-blue-500 to-indigo-600 text-white">{(m.displayName || 'U').charAt(0).toUpperCase()}</div>}
                 </div>
                 <span className="text-sm font-bold truncate max-w-full">{m.displayName}</span>
@@ -152,7 +152,7 @@ export default function GroupDetail({ isDarkMode }: { isDarkMode: boolean }) {
                   {i < 3 ? medals[i] : `${i + 1}`}
                 </span>
                 <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0">
-                  {m.photoURL ? <img src={m.photoURL} className="w-full h-full object-cover" /> :
+                  {m.photoURL ? <img src={m.photoURL} alt={m.displayName || 'Avatar'} className="w-full h-full object-cover" /> :
                     <div className="w-full h-full flex items-center justify-center text-sm font-black bg-gradient-to-br from-blue-500 to-indigo-600 text-white rounded-full">{(m.displayName || 'U').charAt(0).toUpperCase()}</div>}
                 </div>
                 <div className="flex-1 min-w-0">

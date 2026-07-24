@@ -5,6 +5,9 @@ import { useAuth } from '../hooks/useAuth';
 import { Pencil, Check, X, Palette, Shield, Trash2 } from 'lucide-react';
 import { BADGES, getEarnedBadges, getStreak } from '../data/badges';
 import { THEMES, getTheme, setTheme as saveTheme } from '../data/themes';
+import { isOwnerUser } from '../lib/owner';
+import { resetOwnerStats } from '../lib/resetStats';
+import { safeParse } from '../lib/storage';
 import type { ThemeColor, TestResult } from '../types';
 
 export default function Profile({ isDarkMode, onThemeChange }: { isDarkMode: boolean; onThemeChange?: (color: ThemeColor) => void }) {
@@ -16,32 +19,12 @@ export default function Profile({ isDarkMode, onThemeChange }: { isDarkMode: boo
   const [currentTheme, setCurrentTheme] = useState<ThemeColor>(getTheme());
   const card = `rounded-[24px] border p-6 ${isDarkMode ? 'border-white/5 bg-white/5' : 'border-gray-200 bg-white'}`;
 
-  const isOwner = profile?.email === 'muhammadibrohimov0306@gmail.com' || profile?.isAdmin === true;
-
-  const resetOwnerStats = async () => {
-    if (!profile?.uid) return;
-    if (window.confirm("Barcha statistikalaringizni 0 ga tushirishni tasdiqlaysizmi? (Firestore va Mahalliy tarix tozalanadi)")) {
-      try {
-        await updateDoc(doc(db, 'typingUsers', profile.uid), {
-          averageWpm: 0,
-          bestWpm: 0,
-          totalTests: 0,
-          totalCorrectChars: 0
-        });
-        localStorage.removeItem('typing_history');
-        localStorage.removeItem('typing_streak_dates');
-        window.location.reload();
-      } catch (e) {
-        console.error("Xatolik reytingni tozalashda:", e);
-      }
-    }
-  };
+  const isOwner = isOwnerUser(null, profile);
 
   // History for progress chart
   const [history, setHistory] = useState<TestResult[]>([]);
   useEffect(() => {
-    const saved = localStorage.getItem('typing_history');
-    if (saved) setHistory(JSON.parse(saved));
+    setHistory(safeParse<TestResult[]>(localStorage.getItem('typing_history'), []));
   }, []);
 
   if (!profile) return <div className="text-center py-20 opacity-30">Yuklanmoqda...</div>;
@@ -89,7 +72,7 @@ export default function Profile({ isDarkMode, onThemeChange }: { isDarkMode: boo
       {/* Avatar + Name */}
       <div className={`${card} text-center`}>
         <div className="w-20 h-20 rounded-full overflow-hidden mx-auto mb-4 border-4 border-blue-500/20">
-          {profile.photoURL ? <img src={profile.photoURL} className="w-full h-full object-cover" /> :
+          {profile.photoURL ? <img src={profile.photoURL} alt={profile.displayName || 'Avatar'} className="w-full h-full object-cover" /> :
             <div className="w-full h-full flex items-center justify-center text-2xl font-black bg-gradient-to-br from-blue-500 to-indigo-600 text-white">
               {(profile.displayName || 'U').charAt(0).toUpperCase()}
             </div>}
@@ -216,7 +199,7 @@ export default function Profile({ isDarkMode, onThemeChange }: { isDarkMode: boo
             Tizim egasi sifatida statistika va reytingingizni tozalab, nol holatga keltirishingiz mumkin.
           </p>
           <button
-            onClick={resetOwnerStats}
+            onClick={() => resetOwnerStats(profile?.uid)}
             className="flex items-center gap-2 py-3 px-4 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 border border-rose-500/20 hover:border-rose-500/40 rounded-2xl text-sm font-bold transition-all active:scale-95"
           >
             <Trash2 className="w-4 h-4" />

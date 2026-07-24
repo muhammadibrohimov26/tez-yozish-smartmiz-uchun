@@ -1,3 +1,5 @@
+import type { Timestamp } from 'firebase/firestore';
+
 export type Difficulty = 'easy' | 'medium' | 'hard';
 export type Duration = 15 | 30 | 60 | 120;
 export type TestMode = 'words' | 'sentences';
@@ -87,8 +89,9 @@ export interface Battle {
   words: string[];
   pairings?: Record<string, string>; // Maps userId to their opponent's userId for the current round
   participants: Record<string, BattleParticipant>;
-  startTime: any;
-  createdAt: any;
+  /** Server-timestamped anchor for the current round; null until a round starts. */
+  roundStartAt: Timestamp | null;
+  createdAt: Timestamp | null;
 }
 
 export interface Badge {

@@ -17,8 +17,9 @@ export function useLeaderboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Try with orderBy first, fallback to client-side sort if index missing
-    const q = query(collection(db, 'typingUsers'), limit(100));
+    // Server-side ordering by bestWpm (single-field index is automatic); the
+    // error handler below still falls back to a client-side sort just in case.
+    const q = query(collection(db, 'typingUsers'), orderBy('bestWpm', 'desc'), limit(100));
     const unsub = onSnapshot(q, (snap) => {
       const data = snap.docs.map(d => {
         const raw = d.data();
