@@ -3,9 +3,9 @@ import { collection, getDocs, deleteDoc, doc, updateDoc } from 'firebase/firesto
 import { db } from '../firebase';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
-import { Settings, Trash2, Users, FolderKanban, RotateCcw } from 'lucide-react';
+import { Settings, Trash2, Users, FolderKanban, RotateCcw, AlertTriangle } from 'lucide-react';
 import { ZERO_STATS } from '../lib/resetStats';
-import type { UserProfile, Group } from '../types';
+import type { UserProfile, Group, CheatAlert } from '../types';
 
 export default function Admin({ isDarkMode }: { isDarkMode: boolean }) {
   const { user, profile, loading } = useAuth();
@@ -44,6 +44,7 @@ export default function Admin({ isDarkMode }: { isDarkMode: boolean }) {
   
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
+  const [alerts, setAlerts] = useState<CheatAlert[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
 
   useEffect(() => {
@@ -65,6 +66,10 @@ export default function Admin({ isDarkMode }: { isDarkMode: boolean }) {
         const groupsSnap = await getDocs(collection(db, 'groups'));
         const groupsData = groupsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Group));
         setGroups(groupsData.sort((a, b) => b.memberCount - a.memberCount));
+
+        const alertsSnap = await getDocs(collection(db, 'cheatAlerts'));
+        const alertsData = alertsSnap.docs.map(d => ({ id: d.id, ...d.data() } as CheatAlert));
+        setAlerts(alertsData.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0)));
       } catch (error) {
         console.error('Error fetching admin data:', error);
       } finally {
@@ -74,6 +79,15 @@ export default function Admin({ isDarkMode }: { isDarkMode: boolean }) {
 
     fetchData();
   }, [profile]);
+
+  const handleDeleteAlert = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'cheatAlerts', id));
+      setAlerts(alerts.filter(a => a.id !== id));
+    } catch (error) {
+      console.error('Error deleting alert:', error);
+    }
+  };
 
   const handleDeleteGroup = async (groupId: string) => {
     if (!window.confirm("Rostdan ham bu guruhni o'chirib tashlamoqchimisiz?")) return;
@@ -166,6 +180,38 @@ export default function Admin({ isDarkMode }: { isDarkMode: boolean }) {
             )}
           </div>
         </div>
+      </div>
+
+      {/* Cheat Alerts */}
+      <div className={`rounded-3xl border p-6 ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-white border-gray-200 shadow-xl'}`}>
+        <h2 className="text-xl font-bold mb-6 flex items-center gap-2 text-amber-500">
+          <AlertTriangle className="w-5 h-5" /> Limitdan oshgan natijalar ({alerts.length})
+        </h2>
+        {alerts.length === 0 ? (
+          <p className="text-center py-8 opacity-50">Ogohlantirishlar yo'q — hamma {`190`} belgi limitida.</p>
+        ) : (
+          <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
+            {alerts.map(a => (
+              <div key={a.id} className={`p-4 rounded-xl border flex items-center gap-4 ${isDarkMode ? 'bg-amber-500/5 border-amber-500/20' : 'bg-amber-50 border-amber-200'}`}>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-bold truncate">{a.displayName || 'Nomaʼlum'}</h3>
+                  <p className={`text-xs truncate ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{a.email || a.userId}</p>
+                </div>
+                <div className="text-right">
+                  <span className="text-sm font-bold text-amber-500 block">{a.correctChars} belgi</span>
+                  <span className={`text-[10px] uppercase tracking-wider ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>{a.wpm} WPM • {a.difficulty}</span>
+                </div>
+                <button
+                  onClick={() => handleDeleteAlert(a.id)}
+                  aria-label="Ogohlantirishni o'chirish"
+                  className="p-2 rounded-lg text-rose-500 bg-rose-500/10 hover:bg-rose-500 hover:text-white transition-all"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Stats Reset */}

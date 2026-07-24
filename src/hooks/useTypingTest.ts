@@ -1,11 +1,12 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { doc, updateDoc, increment, getDoc } from 'firebase/firestore';
+import { doc, updateDoc, increment, getDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { WORDS, SENTENCES, toCyrillic, getDailyWords, type Language } from '../data/words';
 import type { Difficulty, Duration, TestResult, TestMode, WpmDataPoint } from '../types';
 import { shuffle } from '../lib/shuffle';
 import { compareWord } from '../lib/typing';
 import { readLocal } from '../lib/storage';
+import { MAX_CORRECT_CHARS } from '../lib/limits';
 
 interface UseTypingTestOptions {
   userId?: string;
@@ -107,7 +108,11 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
     if (wpmIntervalRef.current) { clearInterval(wpmIntervalRef.current); wpmIntervalRef.current = null; }
 
-    const cc = correctCharsRef.current;
+    // Cap correct characters at MAX_CORRECT_CHARS for everyone except the owner.
+    // A genuine attempt to exceed the cap is reported to the admin below.
+    const rawCC = correctCharsRef.current;
+    const exceeded = !opts.isOwner && rawCC > MAX_CORRECT_CHARS;
+    const cc = opts.isOwner ? rawCC : Math.min(MAX_CORRECT_CHARS, rawCC);
     const ic = incorrectCharsRef.current;
     const ec = errorCountRef.current;
     const elapsed = (Date.now() - startTimeRef.current) / 60000;
@@ -166,12 +171,27 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
             totalTests: increment(1),
             totalCorrectChars: increment(cc),
           });
+
+          // Anti-cheat: if the raw (uncapped) score passed the hard limit,
+          // notify the admin via the cheatAlerts collection.
+          if (exceeded) {
+            await addDoc(collection(db, 'cheatAlerts'), {
+              userId: opts.userId,
+              displayName: data.displayName || '',
+              email: data.email || '',
+              correctChars: rawCC,
+              wpm: elapsed > 0 ? Math.round((rawCC / 5) / elapsed) : 0,
+              difficulty,
+              duration,
+              createdAt: serverTimestamp(),
+            });
+          }
         }
       } catch (err) {
         console.error("Failed to save result:", err);
       }
     }
-  }, [opts.userId, difficulty, duration]);
+  }, [opts.userId, opts.isOwner, difficulty, duration]);
 
   const startTest = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
@@ -304,9 +324,12 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
     ? Math.round((correctChars / 5) / ((Date.now() - startTimeRef.current) / 60000)) || 0
     : 0;
 
+  // Correct chars for display, clamped to the hard cap (owner is exempt).
+  const displayCorrectChars = opts.isOwner ? correctChars : Math.min(MAX_CORRECT_CHARS, correctChars);
+
   return {
     words, currentWordIndex, userInput, timeLeft, isActive, isFinished,
-    correctChars, incorrectChars, errorCount, wordStatuses, lastFeedback,
+    correctChars, displayCorrectChars, incorrectChars, errorCount, wordStatuses, lastFeedback,
     difficulty, duration, isLatin, language, testMode, isDaily,
     wpmHistory, charErrors, result, liveWpm,
     inputRef, cheatEnabled, setCheatEnabled,

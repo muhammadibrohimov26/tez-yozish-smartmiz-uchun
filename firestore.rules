@@ -35,7 +35,8 @@ service cloud.firestore {
 
     // ---- User profiles / leaderboard ----
     match /typingUsers/{uid} {
-      allow read: if isSignedIn();
+      // Public read: the leaderboard page is viewable without signing in.
+      allow read: if true;
       allow create: if isSignedIn()
         && request.auth.uid == uid
         && request.resource.data.uid == uid;
@@ -63,7 +64,11 @@ service cloud.firestore {
       // Members / results: readable and writable by group members.
       match /members/{memberId} {
         allow read: if isSignedIn();
-        allow write: if isMemberOf(groupId) || isOwner();
+        allow create, update: if isMemberOf(groupId) || isOwner();
+        // Allow leaving: a user may remove their own member doc even after
+        // they have already been taken out of the group's memberIds array.
+        allow delete: if isOwner()
+          || (isSignedIn() && resource.data.userId == request.auth.uid);
       }
       match /results/{resultId} {
         allow read: if isSignedIn();
@@ -77,6 +82,15 @@ service cloud.firestore {
         allow delete: if isOwner()
           || (isSignedIn() && resource.data.creatorId == request.auth.uid);
       }
+    }
+
+    // ---- Anti-cheat alerts ----
+    // Any signed-in user can self-report exceeding the score cap; only the
+    // owner (admin) can read or clear these.
+    match /cheatAlerts/{alertId} {
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid;
+      allow read, delete: if isOwner();
     }
   }
 }
