@@ -29,7 +29,7 @@ export default function Leaderboard({ isDarkMode, themeColor }: { isDarkMode: bo
               <div key={idx} className="flex flex-col items-center gap-1.5 w-24 sm:w-32">
                 <span className={sizes[idx]}>{medals[idx]}</span>
                 <div className={`w-12 h-12 rounded-full overflow-hidden border-2 ${borders[idx]}`}>
-                  {e.photoURL ? <img src={e.photoURL} className="w-full h-full object-cover" /> :
+                  {e.photoURL ? <img src={e.photoURL} alt={e.displayName || 'Avatar'} className="w-full h-full object-cover" /> :
                     <div className="w-full h-full flex items-center justify-center text-lg font-black bg-gradient-to-br from-blue-500 to-indigo-600 text-white">{e.displayName.charAt(0).toUpperCase()}</div>}
                 </div>
                 <span className="text-xs font-bold truncate max-w-full">{e.displayName}</span>
@@ -76,7 +76,7 @@ export default function Leaderboard({ isDarkMode, themeColor }: { isDarkMode: bo
                     {i < 3 ? medals[i] : `${i + 1}`}
                   </span>
                   <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0">
-                    {e.photoURL ? <img src={e.photoURL} className="w-full h-full object-cover" /> :
+                    {e.photoURL ? <img src={e.photoURL} alt={e.displayName || 'Avatar'} className="w-full h-full object-cover" /> :
                       <div className="w-full h-full flex items-center justify-center text-sm font-black bg-gradient-to-br from-blue-500 to-indigo-600 text-white rounded-full">{e.displayName.charAt(0).toUpperCase()}</div>}
                   </div>
                   <span className="font-semibold text-sm truncate">{e.displayName}</span>

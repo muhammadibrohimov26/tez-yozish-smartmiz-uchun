@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { RotateCcw, Trophy, Zap, Calendar, Trash2 } from 'lucide-react';
-import { doc, updateDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { RotateCcw, Trophy, Zap, Calendar } from 'lucide-react';
 import { useTypingTest } from '../hooks/useTypingTest';
 import { useAuth } from '../hooks/useAuth';
 import KeyboardHeatmap from '../components/KeyboardHeatmap';
 import WpmChart from '../components/WpmChart';
 import { THEMES } from '../data/themes';
+import { isOwnerUser } from '../lib/owner';
+import { safeParse } from '../lib/storage';
 import type { Difficulty, Duration, TestResult, ThemeColor } from '../types';
 import type { Language } from '../data/words';
 
@@ -17,7 +17,8 @@ export default function Home({ isDarkMode, themeColor = 'blue' }: { isDarkMode: 
   const { id: groupId } = useParams<{ id: string }>();
   const [devModeUnlocked, setDevModeUnlocked] = useState(() => localStorage.getItem('dev_cheat_mode') === 'true');
   
-  const isOwner = user?.email === 'muhammadibrohimov0306@gmail.com' || profile?.email === 'muhammadibrohimov0306@gmail.com' || profile?.isAdmin === true || devModeUnlocked;
+  // devModeUnlocked kept in state so the Ctrl+Shift+H toggle re-renders reactively.
+  const isOwner = isOwnerUser(user, profile) || devModeUnlocked;
   const test = useTypingTest({ userId: user?.uid, groupId, isOwner });
 
   useEffect(() => {
@@ -35,30 +36,11 @@ export default function Home({ isDarkMode, themeColor = 'blue' }: { isDarkMode: 
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, []);
 
-  const resetOwnerStats = async () => {
-    if (!user?.uid) return;
-    if (window.confirm("Barcha statistikalaringizni 0 ga tushirishni tasdiqlaysizmi? (Firestore va Mahalliy tarix tozalanadi)")) {
-      try {
-        await updateDoc(doc(db, 'typingUsers', user.uid), {
-          averageWpm: 0,
-          bestWpm: 0,
-          totalTests: 0,
-          totalCorrectChars: 0
-        });
-        localStorage.removeItem('typing_history');
-        localStorage.removeItem('typing_streak_dates');
-        window.location.reload();
-      } catch (e) {
-        console.error("Xatolik reytingni tozalashda:", e);
-      }
-    }
-  };
   const t = THEMES[themeColor];
   const [history, setHistory] = useState<TestResult[]>([]);
 
   useEffect(() => {
-    const saved = localStorage.getItem('typing_history');
-    if (saved) setHistory(JSON.parse(saved));
+    setHistory(safeParse<TestResult[]>(localStorage.getItem('typing_history'), []));
   }, [test.isFinished]);
 
   const durations: Duration[] = [15, 30, 60, 120];

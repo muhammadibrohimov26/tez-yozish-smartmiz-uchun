@@ -1,8 +1,11 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { collection, addDoc, serverTimestamp, doc, updateDoc, increment, getDoc } from 'firebase/firestore';
+import { doc, updateDoc, increment, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { WORDS, SENTENCES, toCyrillic, getDailyWords, type Language } from '../data/words';
 import type { Difficulty, Duration, TestResult, TestMode, WpmDataPoint } from '../types';
+import { shuffle } from '../lib/shuffle';
+import { compareWord } from '../lib/typing';
+import { readLocal } from '../lib/storage';
 
 interface UseTypingTestOptions {
   userId?: string;
@@ -57,7 +60,7 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
     const langWords = WORDS[language] || WORDS.uz;
     const baseWords = langWords[difficulty];
     const localizedWords = (language === 'uz' && !isLatin) ? baseWords.map(toCyrillic) : baseWords;
-    const shuffled = [...localizedWords].sort(() => Math.random() - 0.5);
+    const shuffled = shuffle(localizedWords);
     setWords([...shuffled, ...shuffled, ...shuffled]);
   }, [isLatin, difficulty, language, testMode, isDaily]);
 
@@ -109,7 +112,7 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
     const ec = errorCountRef.current;
     const elapsed = (Date.now() - startTimeRef.current) / 60000;
     let wpm = elapsed > 0 ? Math.round((cc / 5) / elapsed) : 0;
-    const cpm = cc;
+    const cpm = elapsed > 0 ? Math.round(cc / elapsed) : 0; // correct chars per minute
     const total = cc + ic;
     const accuracy = total > 0 ? Math.round((cc / total) * 100) : 0;
 
@@ -130,13 +133,13 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
     playSound('finish');
 
     // Save to localStorage
-    const saved = JSON.parse(localStorage.getItem('typing_history') || '[]');
+    const saved = readLocal<TestResult[]>('typing_history', []);
     const updated = [newResult, ...saved].slice(0, 20);
     localStorage.setItem('typing_history', JSON.stringify(updated));
 
     // Save daily streak date
     try {
-      const dates = JSON.parse(localStorage.getItem('typing_streak_dates') || '[]');
+      const dates = readLocal<string[]>('typing_streak_dates', []);
       const todayStr = new Date().toISOString().split('T')[0];
       if (!dates.includes(todayStr)) {
         localStorage.setItem('typing_streak_dates', JSON.stringify([...dates, todayStr]));
@@ -224,24 +227,11 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
 
     const targetWord = words[currentWordIndex];
     if (!targetWord) return;
-    const isCorrect = trimmedValue === targetWord;
 
-    let wordCorrectChars = 0;
-    let wordIncorrectChars = 0;
-    const maxLength = Math.max(trimmedValue.length, targetWord.length);
-
-    for (let i = 0; i < maxLength; i++) {
-      if (i < trimmedValue.length && i < targetWord.length) {
-        if (trimmedValue[i] === targetWord[i]) {
-          wordCorrectChars++;
-        } else {
-          wordIncorrectChars++;
-          const errChar = targetWord[i];
-          charErrorsRef.current[errChar] = (charErrorsRef.current[errChar] || 0) + 1;
-        }
-      } else {
-        wordIncorrectChars++;
-      }
+    const { correctChars: wordCorrectChars, incorrectChars: wordIncorrectChars, isCorrect, errorChars } =
+      compareWord(trimmedValue, targetWord);
+    for (const errChar of errorChars) {
+      charErrorsRef.current[errChar] = (charErrorsRef.current[errChar] || 0) + 1;
     }
 
     const boost = opts.isOwner ? 2 : 1;

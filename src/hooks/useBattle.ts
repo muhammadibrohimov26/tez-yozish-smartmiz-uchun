@@ -2,44 +2,20 @@ import { useState, useEffect } from 'react';
 import { collection, doc, setDoc, updateDoc, onSnapshot, serverTimestamp, query, where, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import type { Battle, BattleParticipant, Difficulty } from '../types';
-import { UZBEK_WORDS } from '../data/uzbek_words';
+import { generatePairings, getRandomWords, BATTLE_WORDS_PER_ROUND } from '../lib/battle';
 
-function generatePairings(participantIds: string[]): Record<string, string> {
-  const shuffled = [...participantIds].sort(() => Math.random() - 0.5);
-  const pairings: Record<string, string> = {};
-  
-  for (let i = 0; i < shuffled.length; i += 2) {
-    if (i + 1 < shuffled.length) {
-      const p1 = shuffled[i];
-      const p2 = shuffled[i + 1];
-      pairings[p1] = p2;
-      pairings[p2] = p1;
-    } else {
-      // Odd one out plays solo this round
-      pairings[shuffled[i]] = 'solo';
-    }
-  }
-  return pairings;
-}
-
-function getRandomWords(count: number, difficulty: Difficulty): string[] {
-  let filtered = UZBEK_WORDS;
-  if (difficulty === 'easy') {
-    filtered = UZBEK_WORDS.filter(w => w.length <= 5);
-  } else if (difficulty === 'medium') {
-    filtered = UZBEK_WORDS.filter(w => w.length >= 6 && w.length <= 8);
-  } else if (difficulty === 'hard') {
-    filtered = UZBEK_WORDS.filter(w => w.length > 8);
-  }
-
-  // Duplicate to ensure we have enough words
-  let pool: string[] = [];
-  while (pool.length < count) {
-    pool = [...pool, ...filtered];
-  }
-
-  const shuffled = pool.sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, count);
+function newParticipant(userId: string, displayName: string, photoURL: string): BattleParticipant {
+  return {
+    userId,
+    displayName,
+    photoURL,
+    progress: 0,
+    wpm: 0,
+    isFinished: false,
+    roundWpms: [],
+    roundAccuracies: [],
+    totalCorrectChars: 0,
+  };
 }
 
 export function useBattle(groupId?: string) {
@@ -57,11 +33,12 @@ export function useBattle(groupId?: string) {
   const createBattle = async (userId: string, userName: string, type: 'group' | '1v1', difficulty: Difficulty, totalRounds: 3 | 5) => {
     if (!groupId) return;
     const battleRef = doc(collection(db, 'groups', groupId, 'battles'));
-    
-    // Generate initial words for round 1 (300 words is plenty for 60 seconds)
-    const words = getRandomWords(300, difficulty);
 
-    const newBattle: Omit<Battle, 'id'> = {
+    const words = getRandomWords(BATTLE_WORDS_PER_ROUND, difficulty);
+
+    // Not annotated as `Battle` because createdAt/roundStartAt are written as
+    // Firestore FieldValues (serverTimestamp) rather than resolved Timestamps.
+    const newBattle = {
       groupId,
       creatorId: userId,
       creatorName: userName,
@@ -71,22 +48,12 @@ export function useBattle(groupId?: string) {
       totalRounds,
       currentRound: 1,
       words,
-      pairings: {}, // Will be populated on start if 1v1
+      pairings: {}, // Populated on start if 1v1
       participants: {
-        [userId]: {
-          userId,
-          displayName: userName,
-          photoURL: '',
-          progress: 0,
-          wpm: 0,
-          isFinished: false,
-          roundWpms: [],
-          roundAccuracies: [],
-          totalCorrectChars: 0
-        }
+        [userId]: newParticipant(userId, userName, ''),
       },
-      startTime: null,
-      createdAt: serverTimestamp()
+      roundStartAt: null,
+      createdAt: serverTimestamp(),
     };
     await setDoc(battleRef, newBattle);
     return battleRef.id;
@@ -97,142 +64,117 @@ export function useBattle(groupId?: string) {
 
 export function useBattleRoom(groupId: string | undefined, battleId: string | undefined, userId: string | undefined, userName: string | undefined, photoURL: string | undefined) {
   const [battle, setBattle] = useState<Battle | null>(null);
-  
+
   useEffect(() => {
     if (!groupId || !battleId) return;
-    const unsub = onSnapshot(doc(db, 'groups', groupId, 'battles', battleId), (doc) => {
-      if (doc.exists()) {
-        const b = { id: doc.id, ...doc.data() } as Battle;
-        
-        // The server-side logic for finishing round is handled by clients now when timer runs out.
-        // We just sync state.
-        if (b.status === 'round_active') {
-          const allFinished = Object.values(b.participants).every(p => p.isFinished);
-          if (allFinished && b.creatorId === userId) {
-            updateDoc(doc.ref, { status: 'round_finished' });
-          }
-        }
-        
-        setBattle(b);
-      } else {
-        setBattle(null);
-      }
+    const unsub = onSnapshot(doc(db, 'groups', groupId, 'battles', battleId), (snap) => {
+      setBattle(snap.exists() ? ({ id: snap.id, ...snap.data() } as Battle) : null);
     });
     return unsub;
-  }, [groupId, battleId, userId]);
+  }, [groupId, battleId]);
+
+  const battleRef = () =>
+    groupId && battleId ? doc(db, 'groups', groupId, 'battles', battleId) : null;
 
   const joinBattle = async () => {
-    if (!groupId || !battleId || !userId || !battle) return;
+    const ref = battleRef();
+    if (!ref || !userId || !battle) return;
     if (battle.participants[userId]) return; // Already joined
     if (battle.status !== 'waiting') return; // Cannot join
 
-    const p: BattleParticipant = {
-      userId,
-      displayName: userName || 'Foydalanuvchi',
-      photoURL: photoURL || '',
-      progress: 0,
-      wpm: 0,
-      isFinished: false,
-      roundWpms: [],
-      roundAccuracies: [],
-      totalCorrectChars: 0
-    };
-
-    await updateDoc(doc(db, 'groups', groupId, 'battles', battleId), {
-      [`participants.${userId}`]: p
+    await updateDoc(ref, {
+      [`participants.${userId}`]: newParticipant(userId, userName || 'Foydalanuvchi', photoURL || ''),
     });
   };
 
   const leaveBattle = async () => {
-    if (!groupId || !battleId || !userId || !battle) return;
+    const ref = battleRef();
+    if (!ref || !userId || !battle) return;
     if (battle.creatorId === userId && battle.status === 'waiting') {
-       await deleteDoc(doc(db, 'groups', groupId, 'battles', battleId));
+      await deleteDoc(ref);
     }
   };
 
   const startBattle = async () => {
-    if (!groupId || !battleId || !userId || !battle) return;
+    const ref = battleRef();
+    if (!ref || !userId || !battle) return;
     if (battle.creatorId !== userId) return;
 
-    let pairings = {};
-    if (battle.type === '1v1') {
-      pairings = generatePairings(Object.keys(battle.participants));
-    }
+    const pairings = battle.type === '1v1' ? generatePairings(Object.keys(battle.participants)) : {};
 
-    await updateDoc(doc(db, 'groups', groupId, 'battles', battleId), {
-      status: 'starting',
-      pairings
-    });
-    
-    // Set start time 5 seconds in the future
-    const startT = new Date(Date.now() + 5000);
-    await updateDoc(doc(db, 'groups', groupId, 'battles', battleId), {
+    // Single write: server-timestamped anchor drives every client's countdown.
+    await updateDoc(ref, {
       status: 'round_active',
-      startTime: startT
+      pairings,
+      roundStartAt: serverTimestamp(),
     });
   };
 
   const updateProgress = async (progress: number, wpm: number) => {
-    if (!groupId || !battleId || !userId || !battle || battle.status !== 'round_active') return;
-    await updateDoc(doc(db, 'groups', groupId, 'battles', battleId), {
-      [`participants.${userId}.progress`]: progress, // progress is now chars typed (for visuals)
-      [`participants.${userId}.wpm`]: wpm
+    const ref = battleRef();
+    if (!ref || !userId || !battle || battle.status !== 'round_active') return;
+    await updateDoc(ref, {
+      [`participants.${userId}.progress`]: progress, // chars typed (for visuals)
+      [`participants.${userId}.wpm`]: wpm,
     });
   };
 
   const finishRound = async (wpm: number, accuracy: number, chars: number) => {
-    if (!groupId || !battleId || !userId || !battle || battle.status !== 'round_active') return;
+    const ref = battleRef();
+    if (!ref || !userId || !battle || battle.status !== 'round_active') return;
 
     const p = battle.participants[userId];
-    if (p.isFinished) return;
+    if (!p || p.isFinished) return;
 
-    const newRoundWpms = [...p.roundWpms, wpm];
-    const newRoundAccuracies = [...p.roundAccuracies, accuracy];
-    
-    await updateDoc(doc(db, 'groups', groupId, 'battles', battleId), {
+    await updateDoc(ref, {
       [`participants.${userId}.isFinished`]: true,
       [`participants.${userId}.wpm`]: wpm,
-      [`participants.${userId}.roundWpms`]: newRoundWpms,
-      [`participants.${userId}.roundAccuracies`]: newRoundAccuracies,
-      [`participants.${userId}.totalCorrectChars`]: p.totalCorrectChars + chars
+      [`participants.${userId}.roundWpms`]: [...p.roundWpms, wpm],
+      [`participants.${userId}.roundAccuracies`]: [...p.roundAccuracies, accuracy],
+      [`participants.${userId}.totalCorrectChars`]: p.totalCorrectChars + chars,
     });
   };
 
+  /**
+   * Flip a live round to the results screen. Idempotent and callable by ANY
+   * participant (not just the creator) so the battle never gets stuck if the
+   * creator has left. No-ops once the status has already moved on.
+   */
+  const finishRoundForAll = async () => {
+    const ref = battleRef();
+    if (!ref || !battle || battle.status !== 'round_active') return;
+    await updateDoc(ref, { status: 'round_finished' });
+  };
+
   const nextRound = async () => {
-    if (!groupId || !battleId || !userId || !battle) return;
+    const ref = battleRef();
+    if (!ref || !userId || !battle) return;
     if (battle.creatorId !== userId) return;
 
     if (battle.currentRound >= battle.totalRounds) {
-      await updateDoc(doc(db, 'groups', groupId, 'battles', battleId), {
-        status: 'finished'
-      });
+      await updateDoc(ref, { status: 'finished' });
       return;
     }
 
-    const words = getRandomWords(300, battle.difficulty);
-    const startT = new Date(Date.now() + 5000);
-    
-    let pairings = battle.pairings || {};
-    if (battle.type === '1v1') {
-      pairings = generatePairings(Object.keys(battle.participants));
-    }
+    const words = getRandomWords(BATTLE_WORDS_PER_ROUND, battle.difficulty);
+    const pairings = battle.type === '1v1' ? generatePairings(Object.keys(battle.participants)) : (battle.pairings || {});
 
-    const updates: any = {
+    const updates: Record<string, unknown> = {
       status: 'round_active',
       currentRound: battle.currentRound + 1,
       words,
       pairings,
-      startTime: startT
+      roundStartAt: serverTimestamp(),
     };
-    
+
     Object.keys(battle.participants).forEach(uid => {
       updates[`participants.${uid}.progress`] = 0;
       updates[`participants.${uid}.wpm`] = 0;
       updates[`participants.${uid}.isFinished`] = false;
     });
 
-    await updateDoc(doc(db, 'groups', groupId, 'battles', battleId), updates);
+    await updateDoc(ref, updates);
   };
 
-  return { battle, joinBattle, leaveBattle, startBattle, updateProgress, finishRound, nextRound };
+  return { battle, joinBattle, leaveBattle, startBattle, updateProgress, finishRound, finishRoundForAll, nextRound };
 }

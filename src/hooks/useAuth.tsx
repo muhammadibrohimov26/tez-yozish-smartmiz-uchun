@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import { onAuthStateChanged, signInWithPopup, signOut, type User } from 'firebase/auth';
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, googleProvider, db } from '../firebase';
+import { OWNER_EMAIL } from '../lib/owner';
 import type { UserProfile } from '../types';
 
 interface AuthContextType {
@@ -26,7 +27,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const snap = await getDoc(doc(db, 'typingUsers', u.uid));
         if (snap.exists()) {
           const data = snap.data() as UserProfile;
-          if (u.email === 'muhammadibrohimov0306@gmail.com') {
+          if (u.email === OWNER_EMAIL) {
              data.isAdmin = true;
           }
           setProfile(data);
@@ -57,14 +58,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           totalTests: 0,
           totalCorrectChars: 0,
         };
-        if (u.email === 'muhammadibrohimov0306@gmail.com') {
+        if (u.email === OWNER_EMAIL) {
            newProfile.isAdmin = true;
         }
         await setDoc(userRef, newProfile);
         setProfile(newProfile);
       } else {
         const data = snap.data() as UserProfile;
-        if (u.email === 'muhammadibrohimov0306@gmail.com') {
+        if (u.email === OWNER_EMAIL) {
            data.isAdmin = true;
         }
         setProfile(data);

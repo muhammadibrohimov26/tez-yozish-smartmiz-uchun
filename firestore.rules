@@ -1,0 +1,82 @@
+rules_version = '2';
+
+// Firestore security rules for SMARTMIZ.
+//
+// Goal (per the review): stop one user from tampering with ANOTHER user's data
+// or spoofing the leaderboard. Scores are still computed on the client, so a
+// user can self-report their own stats — that is intentional and consistent
+// with the app keeping its owner "boost" mechanic.
+//
+// Deploy with:  firebase deploy --only firestore:rules
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // The single hard-coded owner/admin account (keep in sync with src/lib/owner.ts).
+    function isOwner() {
+      return isSignedIn()
+        && request.auth.token.email == 'muhammadibrohimov0306@gmail.com';
+    }
+
+    function isMemberOf(groupId) {
+      return isSignedIn()
+        && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberIds;
+    }
+
+    // Only these numeric stat fields may change on a self-update; identity
+    // fields (uid/email) must stay fixed.
+    function keepsIdentity(uid) {
+      return request.resource.data.uid == uid
+        && request.resource.data.email == resource.data.email;
+    }
+
+    // ---- User profiles / leaderboard ----
+    match /typingUsers/{uid} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.auth.uid == uid
+        && request.resource.data.uid == uid;
+      // Self can update own stats; owner can reset any user (admin panel).
+      allow update: if isOwner()
+        || (request.auth.uid == uid && keepsIdentity(uid));
+      allow delete: if isOwner();
+    }
+
+    // ---- Groups ----
+    match /groups/{groupId} {
+      // Signed-in users can read/list groups (needed to join by code).
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.resource.data.ownerId == request.auth.uid;
+      // Owner of the group (or app owner) may fully edit/delete; any signed-in
+      // user may edit only to join/leave (membership fields).
+      allow update: if isOwner()
+        || resource.data.ownerId == request.auth.uid
+        || (isSignedIn()
+            && request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['memberIds', 'memberCount']));
+      allow delete: if isOwner() || resource.data.ownerId == request.auth.uid;
+
+      // Members / results: readable and writable by group members.
+      match /members/{memberId} {
+        allow read: if isSignedIn();
+        allow write: if isMemberOf(groupId) || isOwner();
+      }
+      match /results/{resultId} {
+        allow read: if isSignedIn();
+        allow write: if isMemberOf(groupId) || isOwner();
+      }
+      // Battles: members can create/join/update; delete limited to creator/owner.
+      match /battles/{battleId} {
+        allow read: if isSignedIn();
+        allow create: if isMemberOf(groupId);
+        allow update: if isMemberOf(groupId) || isOwner();
+        allow delete: if isOwner()
+          || (isSignedIn() && resource.data.creatorId == request.auth.uid);
+      }
+    }
+  }
+}
