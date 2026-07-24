@@ -83,5 +83,14 @@ service cloud.firestore {
           || (isSignedIn() && resource.data.creatorId == request.auth.uid);
       }
     }
+
+    // ---- Anti-cheat alerts ----
+    // Any signed-in user can self-report exceeding the score cap; only the
+    // owner (admin) can read or clear these.
+    match /cheatAlerts/{alertId} {
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid;
+      allow read, delete: if isOwner();
+    }
   }
 }

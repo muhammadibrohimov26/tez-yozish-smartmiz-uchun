@@ -6,9 +6,11 @@ import { useTypingTest } from '../hooks/useTypingTest';
 import { useAuth } from '../hooks/useAuth';
 import KeyboardHeatmap from '../components/KeyboardHeatmap';
 import WpmChart from '../components/WpmChart';
+import Fireworks from '../components/Fireworks';
 import { THEMES } from '../data/themes';
 import { isOwnerUser } from '../lib/owner';
 import { safeParse } from '../lib/storage';
+import { FIREWORKS_THRESHOLD } from '../lib/limits';
 import type { Difficulty, Duration, TestResult, ThemeColor } from '../types';
 import type { Language } from '../data/words';
 
@@ -51,7 +53,9 @@ export default function Home({ isDarkMode, themeColor = 'blue' }: { isDarkMode: 
   ];
 
   return (
-    <div className="max-w-6xl mx-auto p-4 md:p-12 space-y-8">
+    <>
+      {test.displayCorrectChars > FIREWORKS_THRESHOLD && <Fireworks />}
+      <div className="relative z-10 max-w-6xl mx-auto p-4 md:p-12 space-y-8">
       {/* Controls */}
       <div className="flex flex-wrap justify-center items-center gap-2">
         {/* Language */}
@@ -131,13 +135,13 @@ export default function Home({ isDarkMode, themeColor = 'blue' }: { isDarkMode: 
             test.isActive ? (isDarkMode ? 'border-blue-500/50 bg-blue-500/10 text-blue-400 shadow-blue-500/20' : 'border-blue-500 bg-blue-50 text-blue-600 shadow-blue-500/10')
               : (isDarkMode ? 'border-white/5 bg-white/5 text-white/20' : 'border-gray-200 bg-white text-gray-200')
           }`}>
-            {test.isActive ? test.timeLeft : (test.isFinished ? test.result?.wpm || 0 : '00')}
+            {test.isActive ? test.timeLeft : (test.isFinished ? test.displayCorrectChars : '00')}
           </div>
         </div>
         <div className="flex justify-end gap-3">
           <div className={`px-3 py-2 rounded-2xl border flex flex-col items-center min-w-[60px] ${isDarkMode ? 'border-white/5 bg-white/5' : 'border-gray-200 bg-white shadow-sm'}`}>
             <span className="text-[9px] font-black uppercase opacity-30 tracking-widest">To'g'ri</span>
-            <span className="text-xl font-display font-bold text-blue-500">{Math.round(test.correctChars / 5)}</span>
+            <span className="text-xl font-display font-bold text-blue-500">{test.displayCorrectChars}</span>
           </div>
           <div className={`px-3 py-2 rounded-2xl border flex flex-col items-center min-w-[60px] ${isDarkMode ? 'border-white/5 bg-white/5' : 'border-gray-200 bg-white shadow-sm'}`}>
             <span className="text-[9px] font-black uppercase opacity-30 tracking-widest">Xato</span>
@@ -168,7 +172,7 @@ export default function Home({ isDarkMode, themeColor = 'blue' }: { isDarkMode: 
                 </div>
                 <div className={`p-4 rounded-[20px] border ${isDarkMode ? 'border-white/5 bg-white/5' : 'border-gray-100 bg-gray-50'}`}>
                   <p className="text-[10px] opacity-40 uppercase font-black tracking-[0.2em] mb-1">To'g'ri</p>
-                  <p className="text-2xl font-display font-bold text-blue-400">{test.correctChars} <span className="text-xs opacity-40">belgi</span></p>
+                  <p className="text-2xl font-display font-bold text-blue-400">{test.displayCorrectChars} <span className="text-xs opacity-40">belgi</span></p>
                 </div>
                 <div className={`p-4 rounded-[20px] border ${isDarkMode ? 'border-white/5 bg-white/5' : 'border-gray-100 bg-gray-50'}`}>
                   <p className="text-[10px] opacity-40 uppercase font-black tracking-[0.2em] mb-1">Xato</p>
@@ -288,6 +292,7 @@ export default function Home({ isDarkMode, themeColor = 'blue' }: { isDarkMode: 
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 }

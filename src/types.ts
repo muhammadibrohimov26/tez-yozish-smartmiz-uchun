@@ -94,6 +94,18 @@ export interface Battle {
   createdAt: Timestamp | null;
 }
 
+export interface CheatAlert {
+  id: string;
+  userId: string;
+  displayName: string;
+  email: string;
+  correctChars: number;
+  wpm: number;
+  difficulty: Difficulty;
+  duration: Duration;
+  createdAt: Timestamp | null;
+}
+
 export interface Badge {
   id: string;
   name: string;
