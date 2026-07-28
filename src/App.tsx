@@ -9,6 +9,8 @@ import type { ThemeColor } from './types';
 // Route-level code splitting keeps the initial bundle (firebase + motion) small.
 const Home = lazy(() => import('./pages/Home'));
 const Login = lazy(() => import('./pages/Login'));
+const Lessons = lazy(() => import('./pages/Lessons'));
+const LessonDrill = lazy(() => import('./pages/LessonDrill'));
 const Groups = lazy(() => import('./pages/Groups'));
 const GroupDetail = lazy(() => import('./pages/GroupDetail'));
 const Leaderboard = lazy(() => import('./pages/Leaderboard'));
@@ -46,6 +48,8 @@ function AppRoutes() {
         <Routes>
           <Route path="/" element={<Home isDarkMode={isDarkMode} themeColor={themeColor} />} />
           <Route path="/login" element={<Login isDarkMode={isDarkMode} themeColor={themeColor} />} />
+          <Route path="/lessons" element={<Lessons isDarkMode={isDarkMode} themeColor={themeColor} />} />
+          <Route path="/lessons/:lessonId" element={<LessonDrill isDarkMode={isDarkMode} themeColor={themeColor} />} />
           <Route path="/leaderboard" element={<Leaderboard isDarkMode={isDarkMode} themeColor={themeColor} />} />
           <Route path="/groups" element={<ProtectedRoute><Groups isDarkMode={isDarkMode} /></ProtectedRoute>} />
           <Route path="/groups/:id" element={<ProtectedRoute><GroupDetail isDarkMode={isDarkMode} /></ProtectedRoute>} />
