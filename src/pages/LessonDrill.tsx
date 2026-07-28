@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate, Navigate } from 'react-router-dom';
 import { ArrowLeft, RotateCcw, ArrowRight, Trophy } from 'lucide-react';
 import { LESSONS } from '../data/lessons';
@@ -19,6 +19,7 @@ export default function LessonDrill({ isDarkMode, themeColor = 'blue' }: { isDar
 
   const drill = useLessonDrill(lesson);
   const [flash, setFlash] = useState(false);
+  const currentCharRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
     if (!drill.lastWrongKey) return;
@@ -26,6 +27,12 @@ export default function LessonDrill({ isDarkMode, themeColor = 'blue' }: { isDar
     const timer = setTimeout(() => setFlash(false), 150);
     return () => clearTimeout(timer);
   }, [drill.lastWrongKey]);
+
+  // Keep the current character in view — the drill text can span many lines,
+  // and without this the keyboard below it gets pushed off screen.
+  useEffect(() => {
+    currentCharRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }, [drill.position]);
 
   if (lessonIndex < 0) return <Navigate to="/lessons" replace />;
 
@@ -59,24 +66,27 @@ export default function LessonDrill({ isDarkMode, themeColor = 'blue' }: { isDar
                 Xato: {drill.mistakeCount}
               </span>
             </div>
-            <div className="font-mono text-2xl sm:text-4xl leading-loose tracking-wide">
-              {drill.text.split('').map((ch, i) => {
-                const isSpace = ch === ' ';
-                const isPast = i < drill.position;
-                const isCurrent = i === drill.position;
-                let cls = isDarkMode ? 'text-white/20' : 'text-gray-300';
-                if (isPast) cls = isDarkMode ? 'text-emerald-400' : 'text-emerald-600';
-                else if (isCurrent) cls = flash ? 'text-rose-100' : (isDarkMode ? 'text-white' : 'text-gray-900');
-                return (
-                  <span
-                    key={i}
-                    className={`inline-block ${isSpace ? 'min-w-[0.9em]' : 'min-w-[0.7em]'} mx-0.5 text-center rounded transition-colors ${cls}`}
-                    style={isCurrent ? { backgroundColor: flash ? 'rgba(244,63,94,0.5)' : 'var(--accent-glow)' } : undefined}
-                  >
-                    {isSpace ? '·' : ch}
-                  </span>
-                );
-              })}
+            <div className="max-h-[8rem] sm:max-h-[10.5rem] overflow-hidden">
+              <div className="font-mono text-2xl sm:text-4xl leading-loose tracking-wide">
+                {drill.text.split('').map((ch, i) => {
+                  const isSpace = ch === ' ';
+                  const isPast = i < drill.position;
+                  const isCurrent = i === drill.position;
+                  let cls = isDarkMode ? 'text-white/20' : 'text-gray-300';
+                  if (isPast) cls = isDarkMode ? 'text-emerald-400' : 'text-emerald-600';
+                  else if (isCurrent) cls = flash ? 'text-rose-100' : (isDarkMode ? 'text-white' : 'text-gray-900');
+                  return (
+                    <span
+                      key={i}
+                      ref={isCurrent ? currentCharRef : undefined}
+                      className={`inline-block ${isSpace ? 'min-w-[0.9em]' : 'min-w-[0.7em]'} mx-0.5 text-center rounded transition-colors ${cls}`}
+                      style={isCurrent ? { backgroundColor: flash ? 'rgba(244,63,94,0.5)' : 'var(--accent-glow)' } : undefined}
+                    >
+                      {isSpace ? '·' : ch}
+                    </span>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
