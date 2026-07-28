@@ -9,10 +9,12 @@ const ROWS = [
   ['z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', '/'],
 ];
 
-/** Keyboard width matches this fixed grid at every breakpoint so the SVG hand overlay lines up under it. */
+/** Keyboard width matches this fixed grid at every breakpoint so the hand overlay lines up under it. */
 const KEYS_WIDTH = 'w-[374px] sm:w-[494px]';
+/** ~118% of the keys+spacebar block's own height, so the hands trail off below the keyboard, like a real hand resting on it. */
+const HANDS_HEIGHT = 'h-[214px] sm:h-[280px]';
 
-// x position (0-100 viewBox units) of each finger's key column, and where its curve starts from the palm.
+// x position (0-100 viewBox units) of each finger's home-row key column.
 const FINGER_X: Record<Finger, number> = {
   'left-pinky': 5, 'left-ring': 15, 'left-middle': 25, 'left-index': 35,
   'right-index': 65, 'right-middle': 75, 'right-ring': 85, 'right-pinky': 95,
@@ -22,6 +24,11 @@ const FINGER_ORDER: Finger[] = [
   'left-pinky', 'left-ring', 'left-middle', 'left-index',
   'right-index', 'right-middle', 'right-ring', 'right-pinky',
 ];
+// y=0 is the top of the number row, y=100 the bottom of the spacebar; 100-130 is the
+// extra tail below the keyboard where the palms rest (clipped by the card's rounded edge).
+const FINGERTIP_Y = 51; // home row
+const THUMBTIP_Y = 92; // spacebar
+const PALM_Y = 112;
 
 export default function FingerKeyboard({ activeChar, isDarkMode }: { activeChar?: string; isDarkMode: boolean }) {
   const active = activeChar?.toLowerCase();
@@ -31,7 +38,7 @@ export default function FingerKeyboard({ activeChar, isDarkMode }: { activeChar?
     `h-8 sm:h-11 rounded-lg flex items-center justify-center text-xs sm:text-sm font-bold transition-all ${
       isActive
         ? 'scale-110 text-white'
-        : (isDarkMode ? 'bg-white/5 text-white/40' : 'bg-gray-100 text-gray-500')
+        : (isDarkMode ? 'bg-[#0a0a0f] text-white/40' : 'bg-white text-gray-500 shadow-sm')
     }`;
 
   const keyStyle = (isActive: boolean): React.CSSProperties | undefined =>
@@ -46,42 +53,30 @@ export default function FingerKeyboard({ activeChar, isDarkMode }: { activeChar?
     );
   };
 
-  const idle = isDarkMode ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)';
+  const idle = isDarkMode ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.1)';
   const accent = 'var(--accent)';
 
   const fingerPath = (finger: Finger, hand: 'left' | 'right') => {
-    const tipX = FINGER_X[finger];
     const palmX = hand === 'left' ? 20 : 80;
-    if (finger === 'thumb') return `M ${palmX} 30 Q ${(palmX + 50) / 2} 40 50 44`;
+    if (finger === 'thumb') return `M ${palmX} ${PALM_Y} Q ${(palmX + 50) / 2} ${(PALM_Y + THUMBTIP_Y) / 2} 50 ${THUMBTIP_Y}`;
+    const tipX = FINGER_X[finger];
     const ctrlX = (palmX + tipX) / 2;
-    return `M ${palmX} 30 Q ${ctrlX} 14 ${tipX} 2`;
+    const ctrlY = (PALM_Y + FINGERTIP_Y) / 2 - 6;
+    return `M ${palmX} ${PALM_Y} Q ${ctrlX} ${ctrlY} ${tipX} ${FINGERTIP_Y}`;
   };
 
   return (
-    <div className={`rounded-[24px] border p-6 ${isDarkMode ? 'border-white/5 bg-white/5' : 'border-gray-200 bg-white'}`}>
-      <div className="space-y-1.5 flex flex-col items-center">
-        {ROWS.map((row, ri) => (
-          <div key={ri} className={`flex gap-1.5 ${KEYS_WIDTH}`} style={{ marginLeft: ri * 16 }}>
-            {row.map(char => renderKey(char))}
-          </div>
-        ))}
-        <div className={`pt-1 ${KEYS_WIDTH}`} style={{ marginLeft: 32 }}>
-          <div
-            className={`h-8 sm:h-10 rounded-lg flex items-center justify-center gap-2 text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all ${
-              active === ' ' ? 'scale-105 text-white' : (isDarkMode ? 'bg-white/5 text-white/30' : 'bg-gray-100 text-gray-400')
-            }`}
-            style={keyStyle(active === ' ')}
-          >
-            Probel
-          </div>
-        </div>
-
-        {/* Hand / finger guide: every key's finger is a curve from the palm to the key column;
-            only the finger for the current key is highlighted, mirroring a touch-typing tutor's hand diagram.
-            Anchored under the home row (marginLeft 32, same as that row) since FINGER_X was derived from it. */}
-        <svg viewBox="0 0 100 46" className={`${KEYS_WIDTH} h-16 sm:h-20 mt-1`} style={{ marginLeft: 32 }} preserveAspectRatio="none">
-          <ellipse cx={20} cy={34} rx={14} ry={9} fill={idle} opacity={0.3} />
-          <ellipse cx={80} cy={34} rx={14} ry={9} fill={idle} opacity={0.3} />
+    <div className={`rounded-[24px] border p-6 overflow-hidden ${isDarkMode ? 'border-white/5 bg-white/5' : 'border-gray-200 bg-white'}`}>
+      <div className="relative flex flex-col items-center">
+        {/* Hand illustration: sits behind the keys and trails off below the keyboard. */}
+        <svg
+          viewBox="0 0 100 130"
+          preserveAspectRatio="none"
+          className={`absolute top-0 left-1/2 -translate-x-1/2 ${KEYS_WIDTH} ${HANDS_HEIGHT} pointer-events-none`}
+          style={{ marginLeft: 32 }}
+        >
+          <ellipse cx={20} cy={PALM_Y} rx={17} ry={13} fill={idle} />
+          <ellipse cx={80} cy={PALM_Y} rx={17} ry={13} fill={idle} />
           {FINGER_ORDER.map(finger => {
             const hand = finger.startsWith('left') ? 'left' : 'right';
             const isActive = activeFinger === finger;
@@ -91,28 +86,40 @@ export default function FingerKeyboard({ activeChar, isDarkMode }: { activeChar?
                 d={fingerPath(finger, hand)}
                 fill="none"
                 stroke={isActive ? accent : idle}
-                strokeWidth={isActive ? 2.4 : 1.2}
+                strokeWidth={isActive ? 11 : 9}
                 strokeLinecap="round"
               />
             );
           })}
           {/* Both thumbs rest near the spacebar. */}
-          <path d={fingerPath('thumb', 'left')} fill="none" stroke={activeFinger === 'thumb' ? accent : idle} strokeWidth={activeFinger === 'thumb' ? 2.4 : 1.2} strokeLinecap="round" />
-          <path d={fingerPath('thumb', 'right')} fill="none" stroke={activeFinger === 'thumb' ? accent : idle} strokeWidth={activeFinger === 'thumb' ? 2.4 : 1.2} strokeLinecap="round" />
-          {activeFinger && (
-            <circle
-              cx={FINGER_X[activeFinger]}
-              cy={activeFinger === 'thumb' ? 44 : 2}
-              r={2.4}
-              fill={accent}
-            />
-          )}
+          <path d={fingerPath('thumb', 'left')} fill="none" stroke={activeFinger === 'thumb' ? accent : idle} strokeWidth={activeFinger === 'thumb' ? 11 : 9} strokeLinecap="round" />
+          <path d={fingerPath('thumb', 'right')} fill="none" stroke={activeFinger === 'thumb' ? accent : idle} strokeWidth={activeFinger === 'thumb' ? 11 : 9} strokeLinecap="round" />
         </svg>
+
+        <div className="relative z-10 space-y-1.5 flex flex-col items-center">
+          {ROWS.map((row, ri) => (
+            <div key={ri} className={`flex gap-1.5 ${KEYS_WIDTH}`} style={{ marginLeft: ri * 16 }}>
+              {row.map(char => renderKey(char))}
+            </div>
+          ))}
+          <div className={`pt-1 ${KEYS_WIDTH}`} style={{ marginLeft: 32 }}>
+            <div
+              className={`h-8 sm:h-10 rounded-lg flex items-center justify-center gap-2 text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all ${
+                active === ' ' ? 'scale-105 text-white' : (isDarkMode ? 'bg-[#0a0a0f] text-white/30' : 'bg-white text-gray-400 shadow-sm')
+              }`}
+              style={keyStyle(active === ' ')}
+            >
+              Probel
+            </div>
+          </div>
+        </div>
       </div>
 
-      <p className={`text-center text-xs font-bold uppercase tracking-widest mt-3 h-4 ${isDarkMode ? 'text-white/50' : 'text-gray-500'}`}>
-        {activeFinger ? `Barmoq: ${FINGER_LABELS[activeFinger]}` : ''}
-      </p>
+      <div className="flex justify-center mt-6">
+        <p className={`text-xs font-bold uppercase tracking-widest h-4 px-3 py-1 rounded-full ${activeFinger ? (isDarkMode ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-700') : ''}`}>
+          {activeFinger ? `Barmoq: ${FINGER_LABELS[activeFinger]}` : ''}
+        </p>
+      </div>
     </div>
   );
 }
