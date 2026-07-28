@@ -9,10 +9,15 @@ const ROWS = [
   ['z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', '/'],
 ];
 
-/** Keyboard width matches this fixed grid at every breakpoint so the hand overlay lines up under it. */
-const KEYS_WIDTH = 'w-[374px] sm:w-[494px]';
-/** ~118% of the keys+spacebar block's own height, so the hands trail off below the keyboard, like a real hand resting on it. */
-const HANDS_HEIGHT = 'h-[214px] sm:h-[280px]';
+/**
+ * Every row (and the hand overlay) is 91% of the card's width — the remaining 9%
+ * is reserved as stagger room so a 3-row cascade (marginLeft 0/3/6/9%) never
+ * pushes a row past the right edge. This keeps the whole keyboard fluid: it
+ * scales to 100% of whatever screen it's on instead of overflowing on narrow ones.
+ */
+const ROW_WIDTH = 'w-[91%]';
+const ROW_MARGIN = (rowIndex: number) => `${rowIndex * 3}%`;
+const HOME_ROW_MARGIN = ROW_MARGIN(2); // space bar & hand overlay align under the home row
 
 // x position (0-100 viewBox units) of each finger's home-row key column.
 const FINGER_X: Record<Finger, number> = {
@@ -35,7 +40,7 @@ export default function FingerKeyboard({ activeChar, isDarkMode }: { activeChar?
   const activeFinger = active !== undefined ? FINGER_MAP[active] : undefined;
 
   const keyClass = (isActive: boolean) =>
-    `h-8 sm:h-11 rounded-lg flex items-center justify-center text-xs sm:text-sm font-bold transition-all ${
+    `flex-1 aspect-square rounded-lg flex items-center justify-center text-xs sm:text-sm font-bold transition-all ${
       isActive
         ? 'scale-110 text-white'
         : (isDarkMode ? 'bg-[#0a0a0f] text-white/40' : 'bg-white text-gray-500 shadow-sm')
@@ -47,7 +52,7 @@ export default function FingerKeyboard({ activeChar, isDarkMode }: { activeChar?
   const renderKey = (char: string) => {
     const isActive = active === char;
     return (
-      <div key={char} className={`w-8 sm:w-11 ${keyClass(isActive)}`} style={keyStyle(isActive)}>
+      <div key={char} className={keyClass(isActive)} style={keyStyle(isActive)}>
         {char}
       </div>
     );
@@ -66,14 +71,14 @@ export default function FingerKeyboard({ activeChar, isDarkMode }: { activeChar?
   };
 
   return (
-    <div className={`rounded-[24px] border p-6 overflow-hidden ${isDarkMode ? 'border-white/5 bg-white/5' : 'border-gray-200 bg-white'}`}>
-      <div className="relative flex flex-col items-center">
+    <div className={`rounded-[24px] border p-4 sm:p-6 overflow-hidden ${isDarkMode ? 'border-white/5 bg-white/5' : 'border-gray-200 bg-white'}`}>
+      <div className="relative">
         {/* Hand illustration: sits behind the keys and trails off below the keyboard. */}
         <svg
           viewBox="0 0 100 130"
           preserveAspectRatio="none"
-          className={`absolute top-0 left-1/2 -translate-x-1/2 ${KEYS_WIDTH} ${HANDS_HEIGHT} pointer-events-none`}
-          style={{ marginLeft: 32 }}
+          className={`absolute top-0 left-0 ${ROW_WIDTH} aspect-[100/130] pointer-events-none`}
+          style={{ marginLeft: HOME_ROW_MARGIN }}
         >
           <ellipse cx={20} cy={PALM_Y} rx={17} ry={13} fill={idle} />
           <ellipse cx={80} cy={PALM_Y} rx={17} ry={13} fill={idle} />
@@ -96,13 +101,13 @@ export default function FingerKeyboard({ activeChar, isDarkMode }: { activeChar?
           <path d={fingerPath('thumb', 'right')} fill="none" stroke={activeFinger === 'thumb' ? accent : idle} strokeWidth={activeFinger === 'thumb' ? 11 : 9} strokeLinecap="round" />
         </svg>
 
-        <div className="relative z-10 space-y-1.5 flex flex-col items-center">
+        <div className="relative z-10 space-y-1.5">
           {ROWS.map((row, ri) => (
-            <div key={ri} className={`flex gap-1.5 ${KEYS_WIDTH}`} style={{ marginLeft: ri * 16 }}>
+            <div key={ri} className={`flex gap-1.5 ${ROW_WIDTH}`} style={{ marginLeft: ROW_MARGIN(ri) }}>
               {row.map(char => renderKey(char))}
             </div>
           ))}
-          <div className={`pt-1 ${KEYS_WIDTH}`} style={{ marginLeft: 32 }}>
+          <div className={`pt-1 ${ROW_WIDTH}`} style={{ marginLeft: HOME_ROW_MARGIN }}>
             <div
               className={`h-8 sm:h-10 rounded-lg flex items-center justify-center gap-2 text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all ${
                 active === ' ' ? 'scale-105 text-white' : (isDarkMode ? 'bg-[#0a0a0f] text-white/30' : 'bg-white text-gray-400 shadow-sm')
