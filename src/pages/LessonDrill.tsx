@@ -59,8 +59,9 @@ export default function LessonDrill({ isDarkMode, themeColor = 'blue' }: { isDar
                 Xato: {drill.mistakeCount}
               </span>
             </div>
-            <div className="font-mono text-lg sm:text-2xl leading-relaxed">
+            <div className="font-mono text-2xl sm:text-4xl leading-loose tracking-wide">
               {drill.text.split('').map((ch, i) => {
+                const isSpace = ch === ' ';
                 const isPast = i < drill.position;
                 const isCurrent = i === drill.position;
                 let cls = isDarkMode ? 'text-white/20' : 'text-gray-300';
@@ -69,10 +70,10 @@ export default function LessonDrill({ isDarkMode, themeColor = 'blue' }: { isDar
                 return (
                   <span
                     key={i}
-                    className={`inline-block min-w-[0.55em] px-px rounded transition-colors ${cls}`}
+                    className={`inline-block ${isSpace ? 'min-w-[0.9em]' : 'min-w-[0.7em]'} mx-0.5 text-center rounded transition-colors ${cls}`}
                     style={isCurrent ? { backgroundColor: flash ? 'rgba(244,63,94,0.5)' : 'var(--accent-glow)' } : undefined}
                   >
-                    {ch}
+                    {isSpace ? '·' : ch}
                   </span>
                 );
               })}
