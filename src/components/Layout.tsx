@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Zap, Home, Trophy, Users, User, LogOut, LogIn, Settings, Sun, Moon, ExternalLink, GraduationCap } from 'lucide-react';
+import { Zap, Home, Trophy, Users, User, LogOut, LogIn, Settings, Sun, Moon, GraduationCap } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 
 export default function Layout({ children, isDarkMode, setIsDarkMode, themeColor }: {
@@ -75,16 +75,6 @@ export default function Layout({ children, isDarkMode, setIsDarkMode, themeColor
           </div>
 
           <div className="flex items-center gap-3">
-            <a
-              href="https://www.typingclub.com/"
-              target="_blank"
-              rel="noopener noreferrer"
-              title="TypingClub'ga o'tish"
-              className={`hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold transition-all ${isDarkMode ? 'text-white/40 hover:text-white/70 hover:bg-white/5' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'}`}
-            >
-              <ExternalLink className="w-4 h-4" />
-              <span className="hidden lg:inline">TypingClub</span>
-            </a>
             <button
               onClick={() => setIsDarkMode(!isDarkMode)}
               aria-label={isDarkMode ? 'Yorug‘ rejimga o‘tish' : 'Tungi rejimga o‘tish'}
