@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
 import { FINGER_MAP, FINGER_LABELS, type Finger } from '../data/lessons';
 
 const NUMBER_ROW = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'];
@@ -13,11 +13,14 @@ const ROWS = [
  * Every row (and the hand overlay) is 91% of the card's width — the remaining 9%
  * is reserved as stagger room so a 3-row cascade (marginLeft 0/3/6/9%) never
  * pushes a row past the right edge. This keeps the whole keyboard fluid: it
- * scales to 100% of whatever screen it's on instead of overflowing on narrow ones.
+ * scales to 100% of whatever screen it's on instead of overflowing on narrow ones,
+ * while `max-w-[600px]` on the card (below) keeps keys from growing oversized on wide screens.
  */
 const ROW_WIDTH = 'w-[91%]';
 const ROW_MARGIN = (rowIndex: number) => `${rowIndex * 3}%`;
 const HOME_ROW_MARGIN = ROW_MARGIN(2); // space bar & hand overlay align under the home row
+/** How much taller the hand overlay is than the keys+spacebar block, for the palms to trail below. */
+const TAIL_RATIO = 1.09;
 
 // x position (0-100 viewBox units) of each finger's home-row key column.
 const FINGER_X: Record<Finger, number> = {
@@ -29,15 +32,31 @@ const FINGER_ORDER: Finger[] = [
   'left-pinky', 'left-ring', 'left-middle', 'left-index',
   'right-index', 'right-middle', 'right-ring', 'right-pinky',
 ];
-// y=0 is the top of the number row, y=100 the bottom of the spacebar; 100-130 is the
-// extra tail below the keyboard where the palms rest (clipped by the card's rounded edge).
+// y=0 is the top of the number row, y=100 the bottom of the spacebar; 100-114 is the
+// short tail below the keyboard where the palms rest (clipped by the card's rounded edge).
 const FINGERTIP_Y = 51; // home row
 const THUMBTIP_Y = 92; // spacebar
-const PALM_Y = 112;
+const PALM_Y = 103;
 
 export default function FingerKeyboard({ activeChar, isDarkMode }: { activeChar?: string; isDarkMode: boolean }) {
   const active = activeChar?.toLowerCase();
   const activeFinger = active !== undefined ? FINGER_MAP[active] : undefined;
+
+  const keysRef = useRef<HTMLDivElement>(null);
+  const [keysHeight, setKeysHeight] = useState(0);
+
+  // The SVG hand overlay is absolutely positioned (so it can sit behind the keys and
+  // trail below them without affecting layout), which means CSS can't auto-size it to
+  // match the keys+spacebar block's own height — measure it directly instead.
+  useLayoutEffect(() => {
+    const el = keysRef.current;
+    if (!el) return;
+    const update = () => setKeysHeight(el.offsetHeight);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const keyClass = (isActive: boolean) =>
     `flex-1 aspect-square rounded-lg flex items-center justify-center text-xs sm:text-sm font-bold transition-all ${
@@ -71,37 +90,39 @@ export default function FingerKeyboard({ activeChar, isDarkMode }: { activeChar?
   };
 
   return (
-    <div className={`rounded-[24px] border p-4 sm:p-6 overflow-hidden ${isDarkMode ? 'border-white/5 bg-white/5' : 'border-gray-200 bg-white'}`}>
+    <div className={`rounded-[24px] border p-4 sm:p-6 overflow-hidden max-w-[600px] mx-auto ${isDarkMode ? 'border-white/5 bg-white/5' : 'border-gray-200 bg-white'}`}>
       <div className="relative">
         {/* Hand illustration: sits behind the keys and trails off below the keyboard. */}
-        <svg
-          viewBox="0 0 100 130"
-          preserveAspectRatio="none"
-          className={`absolute top-0 left-0 ${ROW_WIDTH} aspect-[100/130] pointer-events-none`}
-          style={{ marginLeft: HOME_ROW_MARGIN }}
-        >
-          <ellipse cx={20} cy={PALM_Y} rx={17} ry={13} fill={idle} />
-          <ellipse cx={80} cy={PALM_Y} rx={17} ry={13} fill={idle} />
-          {FINGER_ORDER.map(finger => {
-            const hand = finger.startsWith('left') ? 'left' : 'right';
-            const isActive = activeFinger === finger;
-            return (
-              <path
-                key={finger}
-                d={fingerPath(finger, hand)}
-                fill="none"
-                stroke={isActive ? accent : idle}
-                strokeWidth={isActive ? 11 : 9}
-                strokeLinecap="round"
-              />
-            );
-          })}
-          {/* Both thumbs rest near the spacebar. */}
-          <path d={fingerPath('thumb', 'left')} fill="none" stroke={activeFinger === 'thumb' ? accent : idle} strokeWidth={activeFinger === 'thumb' ? 11 : 9} strokeLinecap="round" />
-          <path d={fingerPath('thumb', 'right')} fill="none" stroke={activeFinger === 'thumb' ? accent : idle} strokeWidth={activeFinger === 'thumb' ? 11 : 9} strokeLinecap="round" />
-        </svg>
+        {keysHeight > 0 && (
+          <svg
+            viewBox="0 0 100 114"
+            preserveAspectRatio="none"
+            className={`absolute top-0 left-0 ${ROW_WIDTH} pointer-events-none`}
+            style={{ marginLeft: HOME_ROW_MARGIN, height: keysHeight * TAIL_RATIO }}
+          >
+            <ellipse cx={20} cy={PALM_Y} rx={14} ry={7} fill={idle} />
+            <ellipse cx={80} cy={PALM_Y} rx={14} ry={7} fill={idle} />
+            {FINGER_ORDER.map(finger => {
+              const hand = finger.startsWith('left') ? 'left' : 'right';
+              const isActive = activeFinger === finger;
+              return (
+                <path
+                  key={finger}
+                  d={fingerPath(finger, hand)}
+                  fill="none"
+                  stroke={isActive ? accent : idle}
+                  strokeWidth={isActive ? 11 : 9}
+                  strokeLinecap="round"
+                />
+              );
+            })}
+            {/* Both thumbs rest near the spacebar. */}
+            <path d={fingerPath('thumb', 'left')} fill="none" stroke={activeFinger === 'thumb' ? accent : idle} strokeWidth={activeFinger === 'thumb' ? 11 : 9} strokeLinecap="round" />
+            <path d={fingerPath('thumb', 'right')} fill="none" stroke={activeFinger === 'thumb' ? accent : idle} strokeWidth={activeFinger === 'thumb' ? 11 : 9} strokeLinecap="round" />
+          </svg>
+        )}
 
-        <div className="relative z-10 space-y-1.5">
+        <div ref={keysRef} className="relative z-10 space-y-1.5">
           {ROWS.map((row, ri) => (
             <div key={ri} className={`flex gap-1.5 ${ROW_WIDTH}`} style={{ marginLeft: ROW_MARGIN(ri) }}>
               {row.map(char => renderKey(char))}
@@ -120,7 +141,7 @@ export default function FingerKeyboard({ activeChar, isDarkMode }: { activeChar?
         </div>
       </div>
 
-      <div className="flex justify-center mt-6">
+      <div className="flex justify-center mt-4">
         <p className={`text-xs font-bold uppercase tracking-widest h-4 px-3 py-1 rounded-full ${activeFinger ? (isDarkMode ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-700') : ''}`}>
           {activeFinger ? `Barmoq: ${FINGER_LABELS[activeFinger]}` : ''}
         </p>
