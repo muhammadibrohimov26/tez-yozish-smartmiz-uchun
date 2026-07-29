@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Lock, CheckCircle2, GraduationCap } from 'lucide-react';
 import { LESSONS } from '../data/lessons';
-import { getLessonProgress, isLessonUnlocked } from '../lib/lessonProgress';
+import { getLessonProgress, isLessonUnlocked, LESSON_PASS_ACCURACY } from '../lib/lessonProgress';
 import { THEMES } from '../data/themes';
 import type { ThemeColor } from '../types';
 
@@ -21,12 +21,17 @@ export default function Lessons({ isDarkMode, themeColor = 'blue' }: { isDarkMod
         <p className={`text-sm ${isDarkMode ? 'text-white/40' : 'text-gray-500'}`}>
           Barmoqlaringizni to'g'ri joylashtirib, klaviaturaga qaramasdan yozishni o'rganing
         </p>
+        <p className={`text-xs ${isDarkMode ? 'text-white/30' : 'text-gray-400'}`}>
+          Keyingi dars ochilishi uchun darsni kamida {LESSON_PASS_ACCURACY}% aniqlik bilan tugating
+        </p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {LESSONS.map((lesson, idx) => {
           const unlocked = isLessonUnlocked(lesson.id, LESSONS);
           const result = progress[lesson.id];
+          // Attempted but below the bar: the card stays neutral, not "done".
+          const passed = Boolean(result && result.bestAccuracy >= LESSON_PASS_ACCURACY);
           return (
             <button
               key={lesson.id}
@@ -35,7 +40,7 @@ export default function Lessons({ isDarkMode, themeColor = 'blue' }: { isDarkMod
               className={`text-left p-5 rounded-2xl border transition-all ${
                 !unlocked
                   ? (isDarkMode ? 'border-white/5 bg-white/[0.02] opacity-40 cursor-not-allowed' : 'border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed')
-                  : result
+                  : passed
                     ? (isDarkMode ? 'border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/15' : 'border-emerald-200 bg-emerald-50 hover:bg-emerald-100')
                     : (isDarkMode ? 'border-white/5 bg-white/5 hover:bg-white/10' : 'border-gray-200 bg-white hover:bg-gray-50 shadow-sm')
               }`}
@@ -44,14 +49,17 @@ export default function Lessons({ isDarkMode, themeColor = 'blue' }: { isDarkMod
                 <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-white/30' : 'text-gray-400'}`}>
                   {idx + 1}-dars
                 </span>
-                {!unlocked ? <Lock className="w-4 h-4 opacity-40" /> : result ? <CheckCircle2 className="w-4 h-4 text-emerald-500" /> : null}
+                {!unlocked ? <Lock className="w-4 h-4 opacity-40" /> : passed ? <CheckCircle2 className="w-4 h-4 text-emerald-500" /> : null}
               </div>
               <h3 className="font-display font-bold text-sm mb-1">{lesson.title}</h3>
               <p className={`text-xs ${isDarkMode ? 'text-white/40' : 'text-gray-500'}`}>{lesson.description}</p>
               {result && (
-                <div className="flex gap-3 mt-3 text-xs font-bold">
+                <div className="flex flex-wrap items-center gap-3 mt-3 text-xs font-bold">
                   <span className={t.text}>{result.bestWpm} WPM</span>
-                  <span className={isDarkMode ? 'text-white/30' : 'text-gray-400'}>{result.bestAccuracy}% aniqlik</span>
+                  <span className={passed ? 'text-emerald-500' : 'text-amber-500'}>{result.bestAccuracy}% aniqlik</span>
+                  {!passed && (
+                    <span className="text-amber-500/80">{LESSON_PASS_ACCURACY}% kerak</span>
+                  )}
                 </div>
               )}
             </button>

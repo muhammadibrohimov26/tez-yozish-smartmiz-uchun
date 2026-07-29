@@ -14,6 +14,8 @@ export const FINGER_MAP: Record<string, Finger> = {
   y: 'right-index', u: 'right-index', i: 'right-middle', o: 'right-ring', p: 'right-pinky',
   a: 'left-pinky', s: 'left-ring', d: 'left-middle', f: 'left-index', g: 'left-index',
   h: 'right-index', j: 'right-index', k: 'right-middle', l: 'right-ring', ';': 'right-pinky',
+  // The apostrophe of o' and g' — Uzbek needs it constantly, so it is taught as a real key.
+  "'": 'right-pinky',
   z: 'left-pinky', x: 'left-ring', c: 'left-middle', v: 'left-index', b: 'left-index',
   n: 'right-index', m: 'right-index', ',': 'right-middle', '.': 'right-ring', '/': 'right-pinky',
   ' ': 'thumb',
@@ -41,6 +43,15 @@ export interface Lesson {
   allowedKeys: string[];
   /** Drills use real Uzbek words instead of random letter chunks. */
   isWordLesson?: boolean;
+  /**
+   * Multi-character units drilled instead of single keys — for the Uzbek
+   * digraphs (o', g', sh, ch), which have to be typed as one motion.
+   */
+  units?: string[];
+  /** Extra condition on the words a word lesson may pick. */
+  wordFilter?: (word: string) => boolean;
+  /** Difficulty buckets a word lesson draws from. Defaults to `easy` alone. */
+  wordLevels?: ('easy' | 'medium' | 'hard')[];
 }
 
 type RawLesson = Omit<Lesson, 'allowedKeys'>;
@@ -55,7 +66,7 @@ const RAW_LESSONS: RawLesson[] = [
   {
     id: 'home-row',
     title: "Uy qatori: to'liq",
-    description: 'Barcha uy qatori tugmalarini mashq qiling: A S D F va J K L ;',
+    description: 'Barcha uy qatori tugmalari: A S D F G va H J K L ;',
     keys: ['a', 's', 'd', 'g', 'h', 'k', 'l', ';'],
   },
   {
@@ -89,6 +100,22 @@ const RAW_LESSONS: RawLesson[] = [
     keys: [],
   },
   {
+    id: 'uzbek-letters',
+    title: "O'zbekcha harflar: o', g', sh, ch",
+    description: "Apostrof tugmasi ; ning o'ng tomonida — uni o'ng jimjiloq bilan bosing. Harf birikmalarini bir harakatdek yozishga o'rganing.",
+    keys: ["'"],
+    units: ["o'", "g'", 'sh', 'ch', 'ng'],
+  },
+  {
+    id: 'uzbek-words',
+    title: "Apostrofli so'zlar",
+    description: "o' va g' qatnashgan haqiqiy so'zlar: ko'z, yo'l, bog', tog'.",
+    keys: [],
+    isWordLesson: true,
+    wordFilter: word => word.includes("'"),
+    wordLevels: ['easy', 'medium'],
+  },
+  {
     id: 'words',
     title: "So'zlar bilan mashq",
     description: "Harflardan so'zlarga o'ting — haqiqiy o'zbekcha so'zlarni yozing.",
@@ -110,10 +137,33 @@ function randomChar(pool: string[], newKeys: string[]): string {
   return source[Math.floor(Math.random() * source.length)];
 }
 
+/**
+ * Words the drill can actually ask for: a–z plus the apostrophe of o'/g'.
+ * The apostrophe used to be excluded, which silently dropped every word with
+ * o' or g' — i.e. the most distinctly Uzbek ones — from the word lessons.
+ */
+const TYPEABLE_WORD = /^[a-z']+$/;
+
 /** Builds a fresh practice string for a lesson — random each call so repeats don't get memorized. */
 export function generateDrillText(lesson: Lesson): string {
+  if (lesson.units) {
+    const units = lesson.units;
+    const chunks: string[] = [];
+    for (let i = 0; i < 26; i++) {
+      const len = 1 + Math.floor(Math.random() * 2);
+      let chunk = '';
+      for (let j = 0; j < len; j++) chunk += units[Math.floor(Math.random() * units.length)];
+      chunks.push(chunk);
+    }
+    return chunks.join(' ');
+  }
+
   if (lesson.isWordLesson) {
-    const candidates = WORDS.uz.easy.filter(w => /^[a-z]+$/.test(w));
+    const levels = lesson.wordLevels ?? ['easy'];
+    const pool = levels.flatMap(level => WORDS.uz[level]);
+    const candidates = pool.filter(
+      w => TYPEABLE_WORD.test(w) && (lesson.wordFilter ? lesson.wordFilter(w) : true),
+    );
     const picked = shuffle(candidates).slice(0, 22);
     return picked.join(' ');
   }
