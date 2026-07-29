@@ -7,7 +7,7 @@ import { motion } from 'motion/react';
 import type { BattleParticipant } from '../types';
 import { useServerClock } from '../hooks/useServerTime';
 import { compareWord } from '../lib/typing';
-import { isCheatActive } from '../lib/owner';
+import { useCheatMode } from '../hooks/useCheatMode';
 import { BATTLE_COUNTDOWN_MS, BATTLE_ROUND_MS } from '../lib/battle';
 
 const ROUND_SECONDS = Math.round(BATTLE_ROUND_MS / 1000);
@@ -30,8 +30,8 @@ export default function BattleRoom({ isDarkMode, themeColor = 'blue' }: { isDark
   const [timeLeftToStart, setTimeLeftToStart] = useState<number | null>(null);
   const [timeLeftInRound, setTimeLeftInRound] = useState<number>(ROUND_SECONDS);
 
-  // Owner account with the Ctrl+Shift+H toggle on — otherwise everyone scores alike.
-  const cheatMode = isCheatActive(user, profile);
+  // Owner account with the Ctrl+Shift+H switch on — otherwise everyone scores alike.
+  const cheatMode = useCheatMode(user, profile);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const typingStartLocalRef = useRef<number>(0); // local ms when typing began (0 = not yet)

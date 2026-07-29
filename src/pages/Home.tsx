@@ -8,44 +8,20 @@ import KeyboardHeatmap from '../components/KeyboardHeatmap';
 import WpmChart from '../components/WpmChart';
 import Fireworks from '../components/Fireworks';
 import { THEMES } from '../data/themes';
-import { isOwnerUser, readCheatFlag, setCheatFlag } from '../lib/owner';
+import { isOwnerUser } from '../lib/owner';
+import { useCheatMode } from '../hooks/useCheatMode';
 import { safeParse } from '../lib/storage';
 import { FIREWORKS_THRESHOLD } from '../lib/limits';
 import type { Difficulty, Duration, TestResult, ThemeColor } from '../types';
 import type { Language } from '../data/words';
 
 export default function Home({ isDarkMode, themeColor = 'blue' }: { isDarkMode: boolean; themeColor?: ThemeColor }) {
-  const { user, profile, loading } = useAuth();
+  const { user, profile } = useAuth();
   const { id: groupId } = useParams<{ id: string }>();
   const isOwner = isOwnerUser(user, profile);
-  // Kept in state so the Ctrl+Shift+H toggle re-renders reactively.
-  const [cheatOn, setCheatOn] = useState(readCheatFlag);
-  // The boost needs BOTH the owner account and the toggle switched on.
-  const cheatMode = isOwner && cheatOn;
+  // Owner account + Ctrl+Shift+H. Off for everyone else, always.
+  const cheatMode = useCheatMode(user, profile);
   const test = useTypingTest({ userId: user?.uid, groupId, isOwner, cheatMode });
-
-  useEffect(() => {
-    if (loading) return; // wait for auth before judging who this is
-    // Non-owners get no shortcut at all — the listener is never attached for
-    // them, and any hand-set flag is wiped.
-    if (!isOwner) {
-      setCheatOn(false);
-      setCheatFlag(false);
-      return;
-    }
-    const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'h') {
-        e.preventDefault();
-        setCheatOn(prev => {
-          const next = !prev;
-          setCheatFlag(next);
-          return next;
-        });
-      }
-    };
-    window.addEventListener('keydown', handleGlobalKeyDown);
-    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [isOwner, loading]);
 
   const t = THEMES[themeColor];
   const [history, setHistory] = useState<TestResult[]>([]);
