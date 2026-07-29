@@ -4,6 +4,7 @@ import { ArrowLeft, RotateCcw, ArrowRight, Trophy } from 'lucide-react';
 import { LESSONS } from '../data/lessons';
 import { useLessonDrill } from '../hooks/useLessonDrill';
 import FingerKeyboard from '../components/FingerKeyboard';
+import { LESSON_PASS_ACCURACY } from '../lib/lessonProgress';
 import { THEMES } from '../data/themes';
 import type { ThemeColor } from '../types';
 
@@ -37,6 +38,7 @@ export default function LessonDrill({ isDarkMode, themeColor = 'blue' }: { isDar
   if (lessonIndex < 0) return <Navigate to="/lessons" replace />;
 
   const nextLesson = LESSONS[lessonIndex + 1];
+  const passed = (drill.result?.accuracy ?? 0) >= LESSON_PASS_ACCURACY;
 
   return (
     <div className="relative z-10 max-w-4xl mx-auto p-4 md:p-12 space-y-6">
@@ -104,10 +106,15 @@ export default function LessonDrill({ isDarkMode, themeColor = 'blue' }: { isDar
               <p className={`text-xs font-bold uppercase tracking-widest ${isDarkMode ? 'text-white/30' : 'text-gray-400'}`}>WPM</p>
             </div>
             <div>
-              <p className="text-3xl font-black text-emerald-500">{drill.result?.accuracy}%</p>
+              <p className={`text-3xl font-black ${passed ? 'text-emerald-500' : 'text-amber-500'}`}>{drill.result?.accuracy}%</p>
               <p className={`text-xs font-bold uppercase tracking-widest ${isDarkMode ? 'text-white/30' : 'text-gray-400'}`}>Aniqlik</p>
             </div>
           </div>
+          <p className={`text-sm font-bold ${passed ? 'text-emerald-500' : 'text-amber-500'}`}>
+            {passed
+              ? (nextLesson ? 'Keyingi dars ochildi!' : "Barcha darslar tugadi — tabriklaymiz!")
+              : `Keyingi dars ochilishi uchun ${LESSON_PASS_ACCURACY}% aniqlik kerak. Yana bir bor urinib ko'ring.`}
+          </p>
           <div className="flex flex-wrap justify-center gap-3 pt-2">
             <button
               onClick={drill.retry}
@@ -116,10 +123,10 @@ export default function LessonDrill({ isDarkMode, themeColor = 'blue' }: { isDar
               <RotateCcw className="w-4 h-4" /> Qayta urinish
             </button>
             <button
-              onClick={() => navigate(nextLesson ? `/lessons/${nextLesson.id}` : '/lessons')}
+              onClick={() => navigate(passed && nextLesson ? `/lessons/${nextLesson.id}` : '/lessons')}
               className={`flex items-center gap-2 px-5 py-3 rounded-xl font-bold text-sm text-white bg-gradient-to-r ${t.gradient} shadow-lg ${t.shadow}`}
             >
-              {nextLesson ? 'Keyingi dars' : 'Darslarga qaytish'} <ArrowRight className="w-4 h-4" />
+              {passed && nextLesson ? 'Keyingi dars' : 'Darslarga qaytish'} <ArrowRight className="w-4 h-4" />
             </button>
           </div>
         </div>

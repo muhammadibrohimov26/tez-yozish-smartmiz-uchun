@@ -26,10 +26,22 @@ export function saveLessonResult(lessonId: string, wpm: number, accuracy: number
   localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
 }
 
-/** The first lesson is always unlocked; every other lesson needs the previous one completed. */
+/**
+ * Accuracy needed to count a lesson as passed. Finishing alone is not enough:
+ * without a bar, a learner can hammer through every lesson with the wrong
+ * fingers and never build the habit the drills exist to teach.
+ */
+export const LESSON_PASS_ACCURACY = 90;
+
+/** Whether this lesson has been passed (finished at or above the accuracy bar). */
+export function isLessonPassed(lessonId: string): boolean {
+  const result = getLessonProgress()[lessonId];
+  return Boolean(result && result.bestAccuracy >= LESSON_PASS_ACCURACY);
+}
+
+/** The first lesson is always unlocked; every other one needs the previous lesson passed. */
 export function isLessonUnlocked(lessonId: string, allLessons: Lesson[]): boolean {
   const index = allLessons.findIndex(l => l.id === lessonId);
   if (index <= 0) return true;
-  const progress = getLessonProgress();
-  return Boolean(progress[allLessons[index - 1].id]);
+  return isLessonPassed(allLessons[index - 1].id);
 }
