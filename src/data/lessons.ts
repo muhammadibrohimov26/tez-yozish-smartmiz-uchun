@@ -52,6 +52,10 @@ export interface Lesson {
   wordFilter?: (word: string) => boolean;
   /** Difficulty buckets a word lesson draws from. Defaults to `easy` alone. */
   wordLevels?: ('easy' | 'medium' | 'hard')[];
+  /** Words start with a capital letter — the drill for the Shift key. */
+  capitalize?: boolean;
+  /** Capitals must be typed as capitals; otherwise Shift is not required. */
+  caseSensitive?: boolean;
 }
 
 type RawLesson = Omit<Lesson, 'allowedKeys'>;
@@ -122,6 +126,22 @@ const RAW_LESSONS: RawLesson[] = [
     keys: [],
     isWordLesson: true,
   },
+  {
+    id: 'numbers',
+    title: 'Raqamlar qatori',
+    description: "Eng yuqoridagi qator: 1 2 3 4 5 va 6 7 8 9 0. Har bosishdan keyin barmoqni uy qatoriga qaytaring.",
+    keys: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'],
+  },
+  {
+    id: 'capitals',
+    title: 'Bosh harflar: Shift',
+    description: "Shift'ni qarama-qarshi qo'lning jimjilog'i bilan bosing: chap qo'l harfiga o'ng Shift, o'ng qo'l harfiga chap Shift.",
+    keys: [],
+    isWordLesson: true,
+    wordLevels: ['easy', 'medium'],
+    capitalize: true,
+    caseSensitive: true,
+  },
 ];
 
 export const LESSONS: Lesson[] = RAW_LESSONS.reduce<Lesson[]>((acc, lesson) => {
@@ -165,7 +185,10 @@ export function generateDrillText(lesson: Lesson): string {
       w => TYPEABLE_WORD.test(w) && (lesson.wordFilter ? lesson.wordFilter(w) : true),
     );
     const picked = shuffle(candidates).slice(0, 22);
-    return picked.join(' ');
+    const words = lesson.capitalize
+      ? picked.map(w => w.charAt(0).toUpperCase() + w.slice(1))
+      : picked;
+    return words.join(' ');
   }
 
   const pool = lesson.allowedKeys.length > 0 ? lesson.allowedKeys : LESSONS[LESSONS.length - 1].allowedKeys;
