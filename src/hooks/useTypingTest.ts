@@ -11,11 +11,13 @@ import { MAX_CORRECT_CHARS } from '../lib/limits';
 interface UseTypingTestOptions {
   userId?: string;
   groupId?: string;
+  /** The owner account — exempt from anti-cheat alerts, but NOT from the score cap. */
   isOwner?: boolean;
+  /** The boost mechanic is live (owner + Ctrl+Shift+H). Doubles score and lifts the cap. */
+  cheatMode?: boolean;
 }
 
 export function useTypingTest(opts: UseTypingTestOptions = {}) {
-  const [cheatEnabled, setCheatEnabled] = useState(false);
   const [words, setWords] = useState<string[]>([]);
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
   const [userInput, setUserInput] = useState('');
@@ -27,6 +29,8 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
   const [errorCount, setErrorCount] = useState(0);
   const [wordStatuses, setWordStatuses] = useState<(boolean | null)[]>([]);
   const [lastFeedback, setLastFeedback] = useState<{ type: 'correct' | 'incorrect' | null; key: number }>({ type: null, key: 0 });
+  /** The most recent mistyped word and its correct spelling, shown live during the test. */
+  const [lastMistake, setLastMistake] = useState<{ typed: string; correct: string } | null>(null);
   const [difficulty, setDifficulty] = useState<Difficulty>('easy');
   const [duration, setDuration] = useState<Duration>(60);
   const [isLatin, setIsLatin] = useState(true);
@@ -108,11 +112,12 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
     if (wpmIntervalRef.current) { clearInterval(wpmIntervalRef.current); wpmIntervalRef.current = null; }
 
-    // Cap correct characters at MAX_CORRECT_CHARS for everyone except the owner.
+    // Cap correct characters at MAX_CORRECT_CHARS. Only the live boost mechanic
+    // lifts the cap; the owner with the toggle off is capped like anyone else.
     // A genuine attempt to exceed the cap is reported to the admin below.
     const rawCC = correctCharsRef.current;
     const exceeded = !opts.isOwner && rawCC > MAX_CORRECT_CHARS;
-    const cc = opts.isOwner ? rawCC : Math.min(MAX_CORRECT_CHARS, rawCC);
+    const cc = opts.cheatMode ? rawCC : Math.min(MAX_CORRECT_CHARS, rawCC);
     const ic = incorrectCharsRef.current;
     const ec = errorCountRef.current;
     const elapsed = (Date.now() - startTimeRef.current) / 60000;
@@ -191,7 +196,7 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
         console.error("Failed to save result:", err);
       }
     }
-  }, [opts.userId, opts.isOwner, difficulty, duration]);
+  }, [opts.userId, opts.isOwner, opts.cheatMode, difficulty, duration]);
 
   const startTest = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
@@ -208,6 +213,7 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
     setErrorCount(0);
     setWordStatuses([]);
     setLastFeedback({ type: null, key: 0 });
+    setLastMistake(null);
     setWpmHistory([]);
     setCharErrors({});
     setResult(null);
@@ -254,7 +260,7 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
       charErrorsRef.current[errChar] = (charErrorsRef.current[errChar] || 0) + 1;
     }
 
-    const boost = opts.isOwner ? 2 : 1;
+    const boost = opts.cheatMode ? 2 : 1;
     const added = (wordCorrectChars + (isCorrect ? 1 : 0)) * boost;
 
     setCorrectChars(p => p + added);
@@ -265,6 +271,7 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
     if (!isCorrect) {
       setErrorCount(p => p + 1);
       errorCountRef.current += 1;
+      setLastMistake({ typed: trimmedValue, correct: targetWord });
       playSound('incorrect');
     }
 
@@ -277,7 +284,7 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
     setLastFeedback({ type: isCorrect ? 'correct' : 'incorrect', key: Date.now() });
     setUserInput('');
     setCurrentWordIndex(p => p + 1);
-  }, [words, currentWordIndex]);
+  }, [words, currentWordIndex, opts.cheatMode]);
 
   const handleInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     if (!isActive) return;
@@ -309,6 +316,7 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
     setErrorCount(0);
     setWordStatuses([]);
     setLastFeedback({ type: null, key: 0 });
+    setLastMistake(null);
     setWpmHistory([]);
     setCharErrors({});
     setResult(null);
@@ -324,15 +332,15 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
     ? Math.round((correctChars / 5) / ((Date.now() - startTimeRef.current) / 60000)) || 0
     : 0;
 
-  // Correct chars for display, clamped to the hard cap (owner is exempt).
-  const displayCorrectChars = opts.isOwner ? correctChars : Math.min(MAX_CORRECT_CHARS, correctChars);
+  // Correct chars for display, clamped to the hard cap (lifted only while boosting).
+  const displayCorrectChars = opts.cheatMode ? correctChars : Math.min(MAX_CORRECT_CHARS, correctChars);
 
   return {
     words, currentWordIndex, userInput, timeLeft, isActive, isFinished,
-    correctChars, displayCorrectChars, incorrectChars, errorCount, wordStatuses, lastFeedback,
+    correctChars, displayCorrectChars, incorrectChars, errorCount, wordStatuses, lastFeedback, lastMistake,
     difficulty, duration, isLatin, language, testMode, isDaily,
     wpmHistory, charErrors, result, liveWpm,
-    inputRef, cheatEnabled, setCheatEnabled,
+    inputRef,
     setDifficulty, setDuration, setIsLatin, setLanguage, setTestMode, setIsDaily,
     startTest, resetTest, handleInput, handleKeyDown, generateWords,
   };

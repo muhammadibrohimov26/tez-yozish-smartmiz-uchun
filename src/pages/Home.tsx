@@ -8,35 +8,44 @@ import KeyboardHeatmap from '../components/KeyboardHeatmap';
 import WpmChart from '../components/WpmChart';
 import Fireworks from '../components/Fireworks';
 import { THEMES } from '../data/themes';
-import { isOwnerUser } from '../lib/owner';
+import { isOwnerUser, readCheatFlag, setCheatFlag } from '../lib/owner';
 import { safeParse } from '../lib/storage';
 import { FIREWORKS_THRESHOLD } from '../lib/limits';
 import type { Difficulty, Duration, TestResult, ThemeColor } from '../types';
 import type { Language } from '../data/words';
 
 export default function Home({ isDarkMode, themeColor = 'blue' }: { isDarkMode: boolean; themeColor?: ThemeColor }) {
-  const { user, profile } = useAuth();
+  const { user, profile, loading } = useAuth();
   const { id: groupId } = useParams<{ id: string }>();
-  const [devModeUnlocked, setDevModeUnlocked] = useState(() => localStorage.getItem('dev_cheat_mode') === 'true');
-  
-  // devModeUnlocked kept in state so the Ctrl+Shift+H toggle re-renders reactively.
-  const isOwner = isOwnerUser(user, profile) || devModeUnlocked;
-  const test = useTypingTest({ userId: user?.uid, groupId, isOwner });
+  const isOwner = isOwnerUser(user, profile);
+  // Kept in state so the Ctrl+Shift+H toggle re-renders reactively.
+  const [cheatOn, setCheatOn] = useState(readCheatFlag);
+  // The boost needs BOTH the owner account and the toggle switched on.
+  const cheatMode = isOwner && cheatOn;
+  const test = useTypingTest({ userId: user?.uid, groupId, isOwner, cheatMode });
 
   useEffect(() => {
+    if (loading) return; // wait for auth before judging who this is
+    // Non-owners get no shortcut at all — the listener is never attached for
+    // them, and any hand-set flag is wiped.
+    if (!isOwner) {
+      setCheatOn(false);
+      setCheatFlag(false);
+      return;
+    }
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'h') {
         e.preventDefault();
-        setDevModeUnlocked(prev => {
+        setCheatOn(prev => {
           const next = !prev;
-          localStorage.setItem('dev_cheat_mode', String(next));
+          setCheatFlag(next);
           return next;
         });
       }
     };
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, []);
+  }, [isOwner, loading]);
 
   const t = THEMES[themeColor];
   const [history, setHistory] = useState<TestResult[]>([]);
@@ -125,10 +134,15 @@ export default function Home({ isDarkMode, themeColor = 'blue' }: { isDarkMode: 
 
       {/* Timer + Stats */}
       <div className="grid grid-cols-3 items-center gap-4 px-4">
-        <div className="flex justify-start">
+        <div className="flex justify-start items-center gap-2">
           <div className={`px-3 py-2 rounded-2xl border text-[10px] font-black tracking-[0.2em] uppercase ${isDarkMode ? 'border-white/5 bg-white/5 text-white/30' : 'border-gray-200 bg-white text-gray-400'}`}>
             {test.isDaily ? '🎯 Kunlik' : (test.difficulty === 'easy' ? 'Oson' : test.difficulty === 'medium' ? "O'rta" : 'Qiyin')} • {test.duration}s
           </div>
+          {cheatMode && (
+            <div className="px-3 py-2 rounded-2xl border border-emerald-500/40 bg-emerald-500/10 text-emerald-400 text-[10px] font-black tracking-[0.2em] uppercase animate-pulse">
+              ⚡ Dev 2x
+            </div>
+          )}
         </div>
         <div className="flex justify-center">
           <div className={`px-6 sm:px-12 py-3 sm:py-4 rounded-3xl border text-3xl sm:text-5xl font-display font-black shadow-2xl transition-all ${
@@ -139,11 +153,27 @@ export default function Home({ isDarkMode, themeColor = 'blue' }: { isDarkMode: 
           </div>
         </div>
         <div className="flex justify-end gap-3">
-          <div className={`px-3 py-2 rounded-2xl border flex flex-col items-center min-w-[60px] ${isDarkMode ? 'border-white/5 bg-white/5' : 'border-gray-200 bg-white shadow-sm'}`}>
-            <span className="text-[9px] font-black uppercase opacity-30 tracking-widest">To'g'ri</span>
-            <span className="text-xl font-display font-bold text-blue-500">{test.displayCorrectChars}</span>
-          </div>
-          <div className={`px-3 py-2 rounded-2xl border flex flex-col items-center min-w-[60px] ${isDarkMode ? 'border-white/5 bg-white/5' : 'border-gray-200 bg-white shadow-sm'}`}>
+          {/* While typing the correct-character count is hidden — it only distracts.
+              Its slot shows the last mistake instead: what was typed vs. how it is spelled. */}
+          {test.isActive ? (
+            <div className={`px-3 py-2 rounded-2xl border flex flex-col items-center justify-center min-w-[110px] max-w-[180px] ${isDarkMode ? 'border-white/5 bg-white/5' : 'border-gray-200 bg-white shadow-sm'}`}>
+              <span className="text-[9px] font-black uppercase opacity-30 tracking-widest">To'g'risi</span>
+              {test.lastMistake ? (
+                <>
+                  <span className="text-base font-display font-black text-emerald-500 truncate max-w-full">{test.lastMistake.correct}</span>
+                  <span className="text-[10px] font-bold text-rose-500/70 line-through truncate max-w-full">{test.lastMistake.typed}</span>
+                </>
+              ) : (
+                <span className="text-base font-display font-black opacity-20">—</span>
+              )}
+            </div>
+          ) : (
+            <div className={`px-3 py-2 rounded-2xl border flex flex-col items-center min-w-[60px] ${isDarkMode ? 'border-white/5 bg-white/5' : 'border-gray-200 bg-white shadow-sm'}`}>
+              <span className="text-[9px] font-black uppercase opacity-30 tracking-widest">To'g'ri</span>
+              <span className="text-xl font-display font-bold text-blue-500">{test.displayCorrectChars}</span>
+            </div>
+          )}
+          <div className={`px-3 py-2 rounded-2xl border flex flex-col items-center justify-center min-w-[60px] ${isDarkMode ? 'border-white/5 bg-white/5' : 'border-gray-200 bg-white shadow-sm'}`}>
             <span className="text-[9px] font-black uppercase opacity-30 tracking-widest">Xato</span>
             <span className="text-xl font-display font-bold text-rose-500">{test.errorCount}</span>
           </div>

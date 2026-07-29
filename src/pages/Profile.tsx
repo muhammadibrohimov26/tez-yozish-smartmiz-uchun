@@ -11,7 +11,7 @@ import { safeParse } from '../lib/storage';
 import type { ThemeColor, TestResult } from '../types';
 
 export default function Profile({ isDarkMode, onThemeChange }: { isDarkMode: boolean; onThemeChange?: (color: ThemeColor) => void }) {
-  const { profile } = useAuth();
+  const { user, profile } = useAuth();
   const [editing, setEditing] = useState(false);
   const [newName, setNewName] = useState('');
   const [saving, setSaving] = useState(false);
@@ -19,7 +19,7 @@ export default function Profile({ isDarkMode, onThemeChange }: { isDarkMode: boo
   const [currentTheme, setCurrentTheme] = useState<ThemeColor>(getTheme());
   const card = `rounded-[24px] border p-6 ${isDarkMode ? 'border-white/5 bg-white/5' : 'border-gray-200 bg-white'}`;
 
-  const isOwner = isOwnerUser(null, profile);
+  const isOwner = isOwnerUser(user, profile);
 
   // History for progress chart
   const [history, setHistory] = useState<TestResult[]>([]);

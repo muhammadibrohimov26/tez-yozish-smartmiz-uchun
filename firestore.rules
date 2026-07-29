@@ -26,23 +26,47 @@ service cloud.firestore {
         && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberIds;
     }
 
-    // Only these numeric stat fields may change on a self-update; identity
-    // fields (uid/email) must stay fixed.
+    // Identity fields (uid/email) must stay fixed on a self-update, and the
+    // admin flag must never be granted by the client — the app derives owner
+    // status from the auth token, so a stored `isAdmin` must not be forgeable.
     function keepsIdentity(uid) {
       return request.resource.data.uid == uid
-        && request.resource.data.email == resource.data.email;
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.get('isAdmin', false)
+             == resource.data.get('isAdmin', false);
+    }
+
+    // Self-reported stats must stay within reachable bounds. The client caps a
+    // test at MAX_CORRECT_CHARS (190) — see src/lib/limits.ts — which is ~152 WPM
+    // at the shortest duration, so 300 leaves headroom without allowing a
+    // console-typed 9999 onto the leaderboard. Totals may only move forward,
+    // by at most one test's worth per write.
+    function statsWithinLimits() {
+      let d = request.resource.data;
+      let prevTests = resource.data.get('totalTests', 0);
+      let prevChars = resource.data.get('totalCorrectChars', 0);
+      return d.get('bestWpm', 0) >= 0 && d.get('bestWpm', 0) <= 300
+        && d.get('averageWpm', 0) >= 0 && d.get('averageWpm', 0) <= 300
+        && d.get('totalTests', 0) >= prevTests
+        && d.get('totalTests', 0) <= prevTests + 1
+        && d.get('totalCorrectChars', 0) >= prevChars
+        && d.get('totalCorrectChars', 0) <= prevChars + 400;
     }
 
     // ---- User profiles / leaderboard ----
     match /typingUsers/{uid} {
       // Public read: the leaderboard page is viewable without signing in.
       allow read: if true;
+      // A new profile must carry the creator's own uid and email, and may only
+      // claim admin if the account really is the owner.
       allow create: if isSignedIn()
         && request.auth.uid == uid
-        && request.resource.data.uid == uid;
+        && request.resource.data.uid == uid
+        && request.resource.data.email == request.auth.token.email
+        && (request.resource.data.get('isAdmin', false) == false || isOwner());
       // Self can update own stats; owner can reset any user (admin panel).
       allow update: if isOwner()
-        || (request.auth.uid == uid && keepsIdentity(uid));
+        || (request.auth.uid == uid && keepsIdentity(uid) && statsWithinLimits());
       allow delete: if isOwner();
     }
 

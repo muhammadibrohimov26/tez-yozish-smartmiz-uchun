@@ -27,9 +27,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const snap = await getDoc(doc(db, 'typingUsers', u.uid));
         if (snap.exists()) {
           const data = snap.data() as UserProfile;
-          if (u.email === OWNER_EMAIL) {
-             data.isAdmin = true;
-          }
+          // Always recomputed from the auth token, never trusted from the document:
+          // the profile doc is client-writable, so a stored flag proves nothing.
+          data.isAdmin = u.email === OWNER_EMAIL;
           setProfile(data);
         }
       } else {
@@ -65,9 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfile(newProfile);
       } else {
         const data = snap.data() as UserProfile;
-        if (u.email === OWNER_EMAIL) {
-           data.isAdmin = true;
-        }
+        data.isAdmin = u.email === OWNER_EMAIL;
         setProfile(data);
       }
     } catch (err: any) {

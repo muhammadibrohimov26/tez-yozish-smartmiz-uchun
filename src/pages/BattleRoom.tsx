@@ -7,7 +7,7 @@ import { motion } from 'motion/react';
 import type { BattleParticipant } from '../types';
 import { useServerClock } from '../hooks/useServerTime';
 import { compareWord } from '../lib/typing';
-import { isOwnerUser } from '../lib/owner';
+import { isCheatActive } from '../lib/owner';
 import { BATTLE_COUNTDOWN_MS, BATTLE_ROUND_MS } from '../lib/battle';
 
 const ROUND_SECONDS = Math.round(BATTLE_ROUND_MS / 1000);
@@ -30,7 +30,8 @@ export default function BattleRoom({ isDarkMode, themeColor = 'blue' }: { isDark
   const [timeLeftToStart, setTimeLeftToStart] = useState<number | null>(null);
   const [timeLeftInRound, setTimeLeftInRound] = useState<number>(ROUND_SECONDS);
 
-  const isOwner = isOwnerUser(user, profile);
+  // Owner account with the Ctrl+Shift+H toggle on — otherwise everyone scores alike.
+  const cheatMode = isCheatActive(user, profile);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const typingStartLocalRef = useRef<number>(0); // local ms when typing began (0 = not yet)
@@ -180,7 +181,7 @@ export default function BattleRoom({ isDarkMode, themeColor = 'blue' }: { isDark
     const { correctChars: wordCorrectChars, incorrectChars: wordIncorrectChars, isCorrect } =
       compareWord(trimmedValue, targetWord);
 
-    const boost = isOwner ? 2 : 1;
+    const boost = cheatMode ? 2 : 1;
     const added = (wordCorrectChars + (isCorrect ? 1 : 0)) * boost;
     const newCorrect = correctChars + added;
     const newIncorrect = incorrectChars + wordIncorrectChars;
