@@ -37,8 +37,9 @@ service cloud.firestore {
     }
 
     // Self-reported stats must stay within reachable bounds. The client caps a
-    // test at MAX_CORRECT_CHARS (190) — see src/lib/limits.ts — which is ~152 WPM
-    // at the shortest duration, so 300 leaves headroom without allowing a
+    // test at 200 WPM worth of characters — see maxCorrectChars() in
+    // src/lib/limits.ts — which over the longest test (120s) is 2000 characters,
+    // so 300 WPM and +2100 characters leave headroom without allowing a
     // console-typed 9999 onto the leaderboard. Totals may only move forward,
     // by at most one test's worth per write.
     function statsWithinLimits() {
@@ -50,7 +51,7 @@ service cloud.firestore {
         && d.get('totalTests', 0) >= prevTests
         && d.get('totalTests', 0) <= prevTests + 1
         && d.get('totalCorrectChars', 0) >= prevChars
-        && d.get('totalCorrectChars', 0) <= prevChars + 400;
+        && d.get('totalCorrectChars', 0) <= prevChars + 2100;
     }
 
     // ---- User profiles / leaderboard ----

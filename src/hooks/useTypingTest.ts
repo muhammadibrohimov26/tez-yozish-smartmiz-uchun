@@ -6,7 +6,7 @@ import type { Difficulty, Duration, TestResult, TestMode, WpmDataPoint } from '.
 import { shuffle } from '../lib/shuffle';
 import { compareWord } from '../lib/typing';
 import { readLocal } from '../lib/storage';
-import { MAX_CORRECT_CHARS } from '../lib/limits';
+import { maxCorrectChars } from '../lib/limits';
 
 interface UseTypingTestOptions {
   userId?: string;
@@ -45,6 +45,8 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
   const inputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const correctCharsRef = useRef(0);
+  /** Words typed exactly right — each one also cost a space keystroke, counted in WPM. */
+  const completedWordsRef = useRef(0);
   const incorrectCharsRef = useRef(0);
   const errorCountRef = useRef(0);
   const charErrorsRef = useRef<Record<string, number>>({});
@@ -112,16 +114,19 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
     if (wpmIntervalRef.current) { clearInterval(wpmIntervalRef.current); wpmIntervalRef.current = null; }
 
-    // Cap correct characters at MAX_CORRECT_CHARS. Only the live boost mechanic
-    // lifts the cap; the owner with the toggle off is capped like anyone else.
-    // A genuine attempt to exceed the cap is reported to the admin below.
+    // Cap correct characters at what this duration allows. Only the live boost
+    // mechanic lifts the cap; the owner with the toggle off is capped like anyone
+    // else. A genuine attempt to exceed the cap is reported to the admin below.
+    const cap = maxCorrectChars(duration);
     const rawCC = correctCharsRef.current;
-    const exceeded = !opts.isOwner && rawCC > MAX_CORRECT_CHARS;
-    const cc = opts.cheatMode ? rawCC : Math.min(MAX_CORRECT_CHARS, rawCC);
+    const exceeded = !opts.isOwner && rawCC > cap;
+    const cc = opts.cheatMode ? rawCC : Math.min(cap, rawCC);
     const ic = incorrectCharsRef.current;
     const ec = errorCountRef.current;
     const elapsed = (Date.now() - startTimeRef.current) / 60000;
-    let wpm = elapsed > 0 ? Math.round((cc / 5) / elapsed) : 0;
+    // Each finished word also cost a space keystroke, which counts toward speed
+    // even though it is not one of the word's own characters.
+    let wpm = elapsed > 0 ? Math.round(((cc + completedWordsRef.current) / 5) / elapsed) : 0;
     const cpm = elapsed > 0 ? Math.round(cc / elapsed) : 0; // correct chars per minute
     const total = cc + ic;
     const accuracy = total > 0 ? Math.round((cc / total) * 100) : 0;
@@ -219,6 +224,7 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
     setResult(null);
 
     correctCharsRef.current = 0;
+    completedWordsRef.current = 0;
     incorrectCharsRef.current = 0;
     errorCountRef.current = 0;
     charErrorsRef.current = {};
@@ -241,7 +247,8 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
     // WPM history for live chart
     wpmIntervalRef.current = setInterval(() => {
       const elapsed = (Date.now() - startTimeRef.current) / 60000;
-      const wpm = elapsed > 0 ? Math.round((correctCharsRef.current / 5) / elapsed) : 0;
+      const typed = correctCharsRef.current + completedWordsRef.current;
+      const wpm = elapsed > 0 ? Math.round((typed / 5) / elapsed) : 0;
       const sec = Math.round((Date.now() - startTimeRef.current) / 1000);
       setWpmHistory(prev => [...prev, { second: sec, wpm }]);
     }, 2000);
@@ -260,8 +267,12 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
       charErrorsRef.current[errChar] = (charErrorsRef.current[errChar] || 0) + 1;
     }
 
+    // Only the characters of the word itself. The trailing space used to be added
+    // here too, which made a correctly typed 4-letter word report 5 correct
+    // characters; it is tracked separately now and only affects WPM.
     const boost = opts.cheatMode ? 2 : 1;
-    const added = (wordCorrectChars + (isCorrect ? 1 : 0)) * boost;
+    const added = wordCorrectChars * boost;
+    if (isCorrect) completedWordsRef.current += boost;
 
     setCorrectChars(p => p + added);
     correctCharsRef.current += added;
@@ -321,6 +332,7 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
     setCharErrors({});
     setResult(null);
     correctCharsRef.current = 0;
+    completedWordsRef.current = 0;
     incorrectCharsRef.current = 0;
     errorCountRef.current = 0;
     charErrorsRef.current = {};
@@ -329,11 +341,13 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
 
   // Compute live WPM
   const liveWpm = isActive && startTimeRef.current
-    ? Math.round((correctChars / 5) / ((Date.now() - startTimeRef.current) / 60000)) || 0
+    ? Math.round(((correctChars + completedWordsRef.current) / 5) / ((Date.now() - startTimeRef.current) / 60000)) || 0
     : 0;
 
   // Correct chars for display, clamped to the hard cap (lifted only while boosting).
-  const displayCorrectChars = opts.cheatMode ? correctChars : Math.min(MAX_CORRECT_CHARS, correctChars);
+  const displayCorrectChars = opts.cheatMode
+    ? correctChars
+    : Math.min(maxCorrectChars(duration), correctChars);
 
   return {
     words, currentWordIndex, userInput, timeLeft, isActive, isFinished,
