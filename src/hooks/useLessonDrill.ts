@@ -75,7 +75,14 @@ export function useLessonDrill(lesson: Lesson) {
 
       const prevPos = positionRef.current;
       const expected = text[prevPos];
-      if (key.toLowerCase() === expected) {
+      if (expected === undefined) return; // finished, but the listener has not torn down yet
+
+      // Only the Shift lesson demands the right case; elsewhere a stray Caps Lock
+      // should not be scored as a typing mistake.
+      const matches = lesson.caseSensitive
+        ? key === expected
+        : key.toLowerCase() === expected.toLowerCase();
+      if (matches) {
         const nextPos = prevPos + 1;
         positionRef.current = nextPos;
         setPosition(nextPos);
@@ -89,7 +96,7 @@ export function useLessonDrill(lesson: Lesson) {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [text, isFinished, finish]);
+  }, [text, isFinished, finish, lesson.caseSensitive]);
 
   const activeChar = !isFinished ? text[position] : undefined;
 

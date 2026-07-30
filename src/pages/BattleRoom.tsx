@@ -36,6 +36,8 @@ export default function BattleRoom({ isDarkMode, themeColor = 'blue' }: { isDark
   const inputRef = useRef<HTMLInputElement>(null);
   const typingStartLocalRef = useRef<number>(0); // local ms when typing began (0 = not yet)
   const correctCharsRef = useRef(0);
+  /** Words typed exactly right — each also cost a space keystroke, counted in WPM. */
+  const completedWordsRef = useRef(0);
   const incorrectCharsRef = useRef(0);
 
   useEffect(() => { correctCharsRef.current = correctChars; }, [correctChars]);
@@ -68,6 +70,7 @@ export default function BattleRoom({ isDarkMode, themeColor = 'blue' }: { isDark
       setUserInput('');
       setCorrectChars(0);
       setIncorrectChars(0);
+      completedWordsRef.current = 0;
       typingStartLocalRef.current = 0;
     }
   }, [battle?.status, battle?.currentRound]);
@@ -102,7 +105,7 @@ export default function BattleRoom({ isDarkMode, themeColor = 'blue' }: { isDark
         const live = liveRef.current;
         // Record my own result once (works even if the tab was backgrounded).
         if (live.user && live.me && !live.me.isFinished) {
-          const finalWpm = Math.round(correctCharsRef.current / 5); // exactly 1 minute
+          const finalWpm = Math.round((correctCharsRef.current + completedWordsRef.current) / 5); // exactly 1 minute
           const totalTyped = correctCharsRef.current + incorrectCharsRef.current;
           const finalAccuracy = totalTyped > 0 ? Math.round((correctCharsRef.current / totalTyped) * 100) : 0;
           live.finishRound(finalWpm, finalAccuracy, correctCharsRef.current);
@@ -181,8 +184,11 @@ export default function BattleRoom({ isDarkMode, themeColor = 'blue' }: { isDark
     const { correctChars: wordCorrectChars, incorrectChars: wordIncorrectChars, isCorrect } =
       compareWord(trimmedValue, targetWord);
 
+    // Word characters only — the trailing space is counted in `completedWords`
+    // for WPM, not folded into the character score (a 4-letter word scored 5).
     const boost = cheatMode ? 2 : 1;
-    const added = (wordCorrectChars + (isCorrect ? 1 : 0)) * boost;
+    const added = wordCorrectChars * boost;
+    if (isCorrect) completedWordsRef.current += boost;
     const newCorrect = correctChars + added;
     const newIncorrect = incorrectChars + wordIncorrectChars;
     setCorrectChars(newCorrect);
@@ -191,7 +197,9 @@ export default function BattleRoom({ isDarkMode, themeColor = 'blue' }: { isDark
     setCurrentWordIndex(currentWordIndex + 1);
 
     const elapsedMinutes = typingStartLocalRef.current ? (Date.now() - typingStartLocalRef.current) / 60000 : 0;
-    const currentWpm = elapsedMinutes > 0 ? Math.round((newCorrect / 5) / elapsedMinutes) : 0;
+    const currentWpm = elapsedMinutes > 0
+      ? Math.round(((newCorrect + completedWordsRef.current) / 5) / elapsedMinutes)
+      : 0;
 
     // In 60s mode progress is the character count (used only for the comparison bars).
     pushProgress(newCorrect, currentWpm);

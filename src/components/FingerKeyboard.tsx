@@ -1,7 +1,7 @@
 import React, { useLayoutEffect, useRef, useState } from 'react';
-import { FINGER_MAP, FINGER_LABELS, type Finger } from '../data/lessons';
+import { FINGER_MAP, FINGER_LABELS, resolveKey, type Finger } from '../data/lessons';
 
-const NUMBER_ROW = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'];
+const NUMBER_ROW = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-'];
 const ROWS = [
   NUMBER_ROW,
   ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
@@ -40,8 +40,20 @@ const THUMBTIP_Y = 92; // spacebar
 const PALM_Y = 103;
 
 export default function FingerKeyboard({ activeChar, isDarkMode }: { activeChar?: string; isDarkMode: boolean }) {
-  const active = activeChar?.toLowerCase();
-  const activeFinger = active !== undefined ? FINGER_MAP[active] : undefined;
+  // Punctuation like ? and ! also needs Shift, which the character itself does not
+  // reveal — resolveKey maps any character back to the key actually pressed.
+  const resolved = activeChar !== undefined ? resolveKey(activeChar) : undefined;
+  const active = resolved?.key;
+  const letterFinger = active !== undefined ? FINGER_MAP[active] : undefined;
+  // Shift is pressed by the pinky of the OTHER hand — that opposite-hand rule is the
+  // whole point of the Shift lesson, so both fingers light up together.
+  const needsShift = resolved?.needsShift ?? false;
+  const shiftFinger: Finger | undefined = needsShift && letterFinger
+    ? (letterFinger.startsWith('left') ? 'right-pinky' : 'left-pinky')
+    : undefined;
+  const activeFingers = new Set<Finger>(
+    [letterFinger, shiftFinger].filter((f): f is Finger => f !== undefined),
+  );
 
   const keysRef = useRef<HTMLDivElement>(null);
   const [keysHeight, setKeysHeight] = useState(0);
@@ -105,7 +117,7 @@ export default function FingerKeyboard({ activeChar, isDarkMode }: { activeChar?
             <ellipse cx={80} cy={PALM_Y} rx={14} ry={7} fill={idle} />
             {FINGER_ORDER.map(finger => {
               const hand = finger.startsWith('left') ? 'left' : 'right';
-              const isActive = activeFinger === finger;
+              const isActive = activeFingers.has(finger);
               return (
                 <path
                   key={finger}
@@ -118,8 +130,8 @@ export default function FingerKeyboard({ activeChar, isDarkMode }: { activeChar?
               );
             })}
             {/* Both thumbs rest near the spacebar. */}
-            <path d={fingerPath('thumb', 'left')} fill="none" stroke={activeFinger === 'thumb' ? accent : idle} strokeWidth={activeFinger === 'thumb' ? 11 : 9} strokeLinecap="round" />
-            <path d={fingerPath('thumb', 'right')} fill="none" stroke={activeFinger === 'thumb' ? accent : idle} strokeWidth={activeFinger === 'thumb' ? 11 : 9} strokeLinecap="round" />
+            <path d={fingerPath('thumb', 'left')} fill="none" stroke={activeFingers.has('thumb') ? accent : idle} strokeWidth={activeFingers.has('thumb') ? 11 : 9} strokeLinecap="round" />
+            <path d={fingerPath('thumb', 'right')} fill="none" stroke={activeFingers.has('thumb') ? accent : idle} strokeWidth={activeFingers.has('thumb') ? 11 : 9} strokeLinecap="round" />
           </svg>
         )}
 
@@ -142,9 +154,21 @@ export default function FingerKeyboard({ activeChar, isDarkMode }: { activeChar?
         </div>
       </div>
 
-      <div className="flex justify-center mt-4">
-        <p className={`text-xs font-bold uppercase tracking-widest h-4 px-3 py-1 rounded-full ${activeFinger ? (isDarkMode ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-700') : ''}`}>
-          {activeFinger ? `Barmoq: ${FINGER_LABELS[activeFinger]}` : ''}
+      <div className="flex justify-center items-center gap-2 mt-4 h-7">
+        {needsShift && (
+          <span
+            className="text-xs font-black uppercase tracking-widest px-3 py-1.5 rounded-full text-white"
+            style={{ backgroundColor: 'var(--accent)', boxShadow: '0 0 12px 2px var(--accent-glow)' }}
+          >
+            ⇧ Shift
+          </span>
+        )}
+        <p className={`text-xs font-bold uppercase tracking-widest px-3 py-1.5 rounded-full ${letterFinger ? (isDarkMode ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-700') : ''}`}>
+          {letterFinger
+            ? (shiftFinger
+                ? `${FINGER_LABELS[shiftFinger]} + ${FINGER_LABELS[letterFinger]}`
+                : `Barmoq: ${FINGER_LABELS[letterFinger]}`)
+            : ''}
         </p>
       </div>
     </div>
