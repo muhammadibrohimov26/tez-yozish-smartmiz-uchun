@@ -1,7 +1,7 @@
 import React, { useLayoutEffect, useRef, useState } from 'react';
-import { FINGER_MAP, FINGER_LABELS, type Finger } from '../data/lessons';
+import { FINGER_MAP, FINGER_LABELS, resolveKey, type Finger } from '../data/lessons';
 
-const NUMBER_ROW = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'];
+const NUMBER_ROW = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-'];
 const ROWS = [
   NUMBER_ROW,
   ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
@@ -40,11 +40,14 @@ const THUMBTIP_Y = 92; // spacebar
 const PALM_Y = 103;
 
 export default function FingerKeyboard({ activeChar, isDarkMode }: { activeChar?: string; isDarkMode: boolean }) {
-  const active = activeChar?.toLowerCase();
+  // Punctuation like ? and ! also needs Shift, which the character itself does not
+  // reveal — resolveKey maps any character back to the key actually pressed.
+  const resolved = activeChar !== undefined ? resolveKey(activeChar) : undefined;
+  const active = resolved?.key;
   const letterFinger = active !== undefined ? FINGER_MAP[active] : undefined;
-  // A capital needs Shift, pressed by the pinky of the OTHER hand — that opposite-hand
-  // rule is the whole point of the Shift lesson, so both fingers light up together.
-  const needsShift = activeChar !== undefined && activeChar !== activeChar.toLowerCase();
+  // Shift is pressed by the pinky of the OTHER hand — that opposite-hand rule is the
+  // whole point of the Shift lesson, so both fingers light up together.
+  const needsShift = resolved?.needsShift ?? false;
   const shiftFinger: Finger | undefined = needsShift && letterFinger
     ? (letterFinger.startsWith('left') ? 'right-pinky' : 'left-pinky')
     : undefined;

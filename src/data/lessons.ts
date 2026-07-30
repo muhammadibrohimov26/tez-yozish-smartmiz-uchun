@@ -1,4 +1,4 @@
-import { WORDS } from './words';
+import { WORDS, SENTENCES } from './words';
 import { shuffle } from '../lib/shuffle';
 
 export type Finger =
@@ -18,8 +18,29 @@ export const FINGER_MAP: Record<string, Finger> = {
   "'": 'right-pinky',
   z: 'left-pinky', x: 'left-ring', c: 'left-middle', v: 'left-index', b: 'left-index',
   n: 'right-index', m: 'right-index', ',': 'right-middle', '.': 'right-ring', '/': 'right-pinky',
+  '-': 'right-pinky', '=': 'right-pinky',
   ' ': 'thumb',
 };
+
+/**
+ * Characters produced by holding Shift, mapped to the key actually pressed.
+ * Lets the keyboard show both the key and the Shift requirement for punctuation,
+ * where — unlike letters — the character itself gives no hint that Shift is needed.
+ */
+export const SHIFTED_KEYS: Record<string, string> = {
+  '!': '1', '@': '2', '#': '3', '$': '4', '%': '5',
+  '^': '6', '&': '7', '*': '8', '(': '9', ')': '0',
+  '_': '-', '+': '=', ':': ';', '"': "'",
+  '<': ',', '>': '.', '?': '/',
+};
+
+/** The key a character is typed on, and whether Shift is held to get it. */
+export function resolveKey(char: string): { key: string; needsShift: boolean } {
+  const shifted = SHIFTED_KEYS[char];
+  if (shifted) return { key: shifted, needsShift: true };
+  const lower = char.toLowerCase();
+  return { key: lower, needsShift: lower !== char };
+}
 
 export const FINGER_LABELS: Record<Finger, string> = {
   'left-pinky': "Chap jimjiloq",
@@ -56,6 +77,12 @@ export interface Lesson {
   capitalize?: boolean;
   /** Capitals must be typed as capitals; otherwise Shift is not required. */
   caseSensitive?: boolean;
+  /** Restricts the random-chunk pool, e.g. to one hand's keys. Defaults to `allowedKeys`. */
+  poolKeys?: string[];
+  /** Punctuation marks appended to each word of a word lesson. */
+  punctuation?: string[];
+  /** Drill on whole sentences — capitals, commas and full stops in real text. */
+  useSentences?: boolean;
 }
 
 type RawLesson = Omit<Lesson, 'allowedKeys'>;
@@ -104,6 +131,20 @@ const RAW_LESSONS: RawLesson[] = [
     keys: [],
   },
   {
+    id: 'left-hand',
+    title: "Chap qo'l mashqi",
+    description: "Faqat chap qo'l tugmalari. O'ng qo'l uy qatorida tinch tursin.",
+    keys: [],
+    poolKeys: ['q', 'w', 'e', 'r', 't', 'a', 's', 'd', 'f', 'g', 'z', 'x', 'c', 'v', 'b'],
+  },
+  {
+    id: 'right-hand',
+    title: "O'ng qo'l mashqi",
+    description: "Faqat o'ng qo'l tugmalari. Chap qo'l uy qatorida tinch tursin.",
+    keys: [],
+    poolKeys: ['y', 'u', 'i', 'o', 'p', 'h', 'j', 'k', 'l', 'n', 'm'],
+  },
+  {
     id: 'uzbek-letters',
     title: "O'zbekcha harflar: o', g', sh, ch",
     description: "Apostrof tugmasi ; ning o'ng tomonida — uni o'ng jimjiloq bilan bosing. Harf birikmalarini bir harakatdek yozishga o'rganing.",
@@ -142,6 +183,24 @@ const RAW_LESSONS: RawLesson[] = [
     capitalize: true,
     caseSensitive: true,
   },
+  {
+    id: 'punctuation',
+    title: 'Tinish belgilari',
+    description: "Vergul, nuqta, so'roq va undov. ? ! : belgilari uchun Shift'ni ushlab turing.",
+    keys: ['-'],
+    isWordLesson: true,
+    wordLevels: ['easy', 'medium'],
+    punctuation: [',', '.', '?', '!', ':', '-'],
+    caseSensitive: true,
+  },
+  {
+    id: 'sentences',
+    title: 'Gaplar',
+    description: "Haqiqiy gaplar: bosh harf, tinish belgisi va probel — hammasi birga.",
+    keys: [],
+    useSentences: true,
+    caseSensitive: true,
+  },
 ];
 
 export const LESSONS: Lesson[] = RAW_LESSONS.reduce<Lesson[]>((acc, lesson) => {
@@ -178,20 +237,30 @@ export function generateDrillText(lesson: Lesson): string {
     return chunks.join(' ');
   }
 
+  if (lesson.useSentences) {
+    const sentences = SENTENCES.uz;
+    return shuffle(sentences).slice(0, 2).join(' ');
+  }
+
   if (lesson.isWordLesson) {
     const levels = lesson.wordLevels ?? ['easy'];
     const pool = levels.flatMap(level => WORDS.uz[level]);
     const candidates = pool.filter(
       w => TYPEABLE_WORD.test(w) && (lesson.wordFilter ? lesson.wordFilter(w) : true),
     );
-    const picked = shuffle(candidates).slice(0, 22);
-    const words = lesson.capitalize
-      ? picked.map(w => w.charAt(0).toUpperCase() + w.slice(1))
-      : picked;
+    let words = shuffle(candidates).slice(0, 22);
+    if (lesson.capitalize) {
+      words = words.map(w => w.charAt(0).toUpperCase() + w.slice(1));
+    }
+    if (lesson.punctuation) {
+      const marks = lesson.punctuation;
+      words = words.map(w => w + marks[Math.floor(Math.random() * marks.length)]);
+    }
     return words.join(' ');
   }
 
-  const pool = lesson.allowedKeys.length > 0 ? lesson.allowedKeys : LESSONS[LESSONS.length - 1].allowedKeys;
+  const pool = lesson.poolKeys
+    ?? (lesson.allowedKeys.length > 0 ? lesson.allowedKeys : LESSONS[LESSONS.length - 1].allowedKeys);
   const chunks: string[] = [];
   for (let i = 0; i < 40; i++) {
     const len = 2 + Math.floor(Math.random() * 3);
