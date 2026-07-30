@@ -1,4 +1,4 @@
-import { WORDS, SENTENCES } from './words';
+import { WORDS, SENTENCES, type Language } from './words';
 import { shuffle } from '../lib/shuffle';
 
 export type Finger =
@@ -73,6 +73,12 @@ export interface Lesson {
   wordFilter?: (word: string) => boolean;
   /** Difficulty buckets a word lesson draws from. Defaults to `easy` alone. */
   wordLevels?: ('easy' | 'medium' | 'hard')[];
+  /** Word list language. Defaults to Uzbek. */
+  wordLanguage?: Language;
+  /** Interleaves numbers between the words — dates, quantities, real-world text. */
+  mixNumbers?: boolean;
+  /** How many words the drill uses. Fewer for long words, so drills stay comparable. */
+  wordCount?: number;
   /** Words start with a capital letter — the drill for the Shift key. */
   capitalize?: boolean;
   /** Capitals must be typed as capitals; otherwise Shift is not required. */
@@ -201,6 +207,52 @@ const RAW_LESSONS: RawLesson[] = [
     useSentences: true,
     caseSensitive: true,
   },
+  {
+    id: 'hard-words',
+    title: "Qiyin so'zlar",
+    description: "Uzun so'zlar: mustaqillik, muvaffaqiyat, rejalashtirish. Shoshmang, ritmni saqlang.",
+    keys: [],
+    isWordLesson: true,
+    wordLevels: ['hard'],
+    wordCount: 14,
+  },
+  {
+    id: 'number-text',
+    title: 'Raqamli matn',
+    description: "Raqam va so'z aralash — sana, miqdor, hisob. Qo'lni harflardan raqamlarga tez ko'chirishni mashq qiling.",
+    keys: [],
+    isWordLesson: true,
+    wordLevels: ['easy', 'medium'],
+    mixNumbers: true,
+  },
+  {
+    id: 'symbols',
+    title: 'Maxsus belgilar',
+    description: "@ # % & * ( ) belgilari raqamlar qatorida, Shift bilan yoziladi. Elektron pochta va parollar uchun kerak.",
+    keys: [],
+    isWordLesson: true,
+    wordLevels: ['easy'],
+    punctuation: ['@', '#', '%', '&', '*', '(', ')'],
+    caseSensitive: true,
+  },
+  {
+    id: 'english-words',
+    title: "Ingliz tili so'zlari",
+    description: "Eng ko'p uchraydigan ingliz so'zlari — apostrof va o'zbekcha harflarsiz sof lotin alifbosi.",
+    keys: [],
+    isWordLesson: true,
+    wordLanguage: 'en',
+    wordLevels: ['easy', 'medium'],
+  },
+  {
+    id: 'speed',
+    title: 'Tezlik mashqi',
+    description: "Qisqa so'zlar. Bu yerda maqsad - yangi tugma emas, tezlik. O'z rekordingizni yangilang.",
+    keys: [],
+    isWordLesson: true,
+    wordLevels: ['easy'],
+    wordFilter: word => word.length <= 4,
+  },
 ];
 
 export const LESSONS: Lesson[] = RAW_LESSONS.reduce<Lesson[]>((acc, lesson) => {
@@ -244,17 +296,24 @@ export function generateDrillText(lesson: Lesson): string {
 
   if (lesson.isWordLesson) {
     const levels = lesson.wordLevels ?? ['easy'];
-    const pool = levels.flatMap(level => WORDS.uz[level]);
+    const language = lesson.wordLanguage ?? 'uz';
+    const pool = levels.flatMap(level => WORDS[language][level]);
     const candidates = pool.filter(
       w => TYPEABLE_WORD.test(w) && (lesson.wordFilter ? lesson.wordFilter(w) : true),
     );
-    let words = shuffle(candidates).slice(0, 22);
+    const count = lesson.wordCount ?? (lesson.mixNumbers ? 11 : 22);
+    let words = shuffle(candidates).slice(0, count);
     if (lesson.capitalize) {
       words = words.map(w => w.charAt(0).toUpperCase() + w.slice(1));
     }
     if (lesson.punctuation) {
       const marks = lesson.punctuation;
       words = words.map(w => w + marks[Math.floor(Math.random() * marks.length)]);
+    }
+    if (lesson.mixNumbers) {
+      // A number before each word: "15 kun 2024 yil" — the real reason to reach
+      // for the number row is quantities and dates, not digits in isolation.
+      words = words.flatMap(w => [String(1 + Math.floor(Math.random() * 2500)), w]);
     }
     return words.join(' ');
   }
