@@ -1,7 +1,7 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Trophy, ArrowLeft, Copy, Check, Zap, Swords } from 'lucide-react';
-import { useGroupDetail } from '../hooks/useGroups';
+import { Trophy, ArrowLeft, Copy, Check, Zap, Swords, LogOut } from 'lucide-react';
+import { useGroupDetail, leaveGroup } from '../hooks/useGroups';
 import { useAuth } from '../hooks/useAuth';
 import { useBattle } from '../hooks/useBattle';
 import type { Difficulty } from '../types';
@@ -21,6 +21,22 @@ export default function GroupDetail({ isDarkMode }: { isDarkMode: boolean }) {
     const battleId = await createBattle(user.uid, profile.displayName, type, battleDifficulty, rounds);
     if (battleId) {
       navigate(`/groups/${id}/battle/${battleId}`);
+    }
+  };
+
+  // The group owner is not offered this: leaving would strand the group with no
+  // owner. They delete it from the admin panel instead.
+  const isGroupOwner = group?.ownerId === user?.uid;
+
+  const handleLeave = async () => {
+    if (!id || !user) return;
+    if (!window.confirm("Guruhdan chiqmoqchimisiz? Reytingdagi natijalaringiz o'chib ketadi.")) return;
+    try {
+      await leaveGroup(id, user.uid);
+      navigate('/groups');
+    } catch (e) {
+      console.error('Guruhdan chiqishda xatolik:', e);
+      alert("Guruhdan chiqishda xatolik yuz berdi.");
     }
   };
 
@@ -86,6 +102,13 @@ export default function GroupDetail({ isDarkMode }: { isDarkMode: boolean }) {
             className="flex items-center gap-2 px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold transition-all shadow-lg shadow-blue-600/20 active:scale-95">
             <Zap className="w-4 h-4" /> Yakkaxon test
           </button>
+
+          {!isGroupOwner && (
+            <button onClick={handleLeave} title="Guruhdan chiqish" aria-label="Guruhdan chiqish"
+              className={`p-3 rounded-xl transition-all ${isDarkMode ? 'text-white/30 hover:text-rose-400 hover:bg-rose-500/10' : 'text-gray-400 hover:text-rose-500 hover:bg-rose-50'}`}>
+              <LogOut className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </div>
 

@@ -7,6 +7,8 @@ import { shuffle } from '../lib/shuffle';
 import { compareWord } from '../lib/typing';
 import { readLocal } from '../lib/storage';
 import { maxCorrectChars } from '../lib/limits';
+import { toDateKey } from '../lib/dates';
+import { saveGroupResult } from '../lib/groupResults';
 
 interface UseTypingTestOptions {
   userId?: string;
@@ -53,9 +55,17 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
   const startTimeRef = useRef(0);
   const wpmIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // The Cyrillic script toggle applies to every Uzbek word list, not just the
+  // shuffled one: the daily challenge used to return before this ran, so
+  // "Кирил + Kunlik" silently served Latin words.
+  const localize = useCallback(
+    (list: string[]) => (language === 'uz' && !isLatin ? list.map(toCyrillic) : list),
+    [language, isLatin],
+  );
+
   const generateWords = useCallback(() => {
     if (isDaily) {
-      setWords(getDailyWords(language, difficulty));
+      setWords(localize(getDailyWords(language, difficulty)));
       return;
     }
     if (testMode === 'sentences') {
@@ -65,11 +75,9 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
       return;
     }
     const langWords = WORDS[language] || WORDS.uz;
-    const baseWords = langWords[difficulty];
-    const localizedWords = (language === 'uz' && !isLatin) ? baseWords.map(toCyrillic) : baseWords;
-    const shuffled = shuffle(localizedWords);
+    const shuffled = shuffle(localize(langWords[difficulty]));
     setWords([...shuffled, ...shuffled, ...shuffled]);
-  }, [isLatin, difficulty, language, testMode, isDaily]);
+  }, [localize, difficulty, language, testMode, isDaily]);
 
   useEffect(() => {
     generateWords();
@@ -155,9 +163,9 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
     // Save daily streak date
     try {
       const dates = readLocal<string[]>('typing_streak_dates', []);
-      const todayStr = new Date().toISOString().split('T')[0];
-      if (!dates.includes(todayStr)) {
-        localStorage.setItem('typing_streak_dates', JSON.stringify([...dates, todayStr]));
+      const todayKey = toDateKey();
+      if (!dates.includes(todayKey)) {
+        localStorage.setItem('typing_streak_dates', JSON.stringify([...dates, todayKey]));
       }
     } catch {}
 
@@ -200,8 +208,21 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
       } catch (err) {
         console.error("Failed to save result:", err);
       }
+
+      // A test started from inside a group also counts towards that group's
+      // ranking. Kept separate from the profile write above so a failure here
+      // cannot cost the user their global stats.
+      if (opts.groupId) {
+        try {
+          await saveGroupResult(opts.groupId, opts.userId, {
+            wpm, accuracy, correctChars: cc, incorrectChars: ic, difficulty, duration,
+          });
+        } catch (err) {
+          console.error('Failed to save group result:', err);
+        }
+      }
     }
-  }, [opts.userId, opts.isOwner, opts.cheatMode, difficulty, duration]);
+  }, [opts.userId, opts.groupId, opts.isOwner, opts.cheatMode, difficulty, duration]);
 
   const startTest = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);

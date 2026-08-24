@@ -97,12 +97,16 @@ export default function Home({ isDarkMode, themeColor = 'blue' }: { isDarkMode: 
           ))}
         </div>
 
-        {/* Duration */}
+        {/* Duration — locked while a test runs. The anti-cheat cap is derived from
+            this value, so switching 120s → 15s mid-test would clamp an honest
+            score to a quarter of its limit and report the user to the admin. */}
         <div className={`flex items-center p-1 rounded-2xl border ${isDarkMode ? 'border-white/5 bg-white/5' : 'border-gray-200 bg-white shadow-sm'}`}>
           {durations.map(d => (
-            <button key={d} onClick={() => test.setDuration(d)}
-              className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                test.duration === d ? (isDarkMode ? 'bg-white/10 text-white' : 'bg-white text-blue-600 shadow-sm') : 'text-gray-400 opacity-40 hover:opacity-100'
+            <button key={d} onClick={() => { if (!test.isActive) test.setDuration(d); }}
+              disabled={test.isActive}
+              title={test.isActive ? 'Test tugagach o\'zgartirish mumkin' : undefined}
+              className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all disabled:cursor-not-allowed ${
+                test.duration === d ? (isDarkMode ? 'bg-white/10 text-white' : 'bg-white text-blue-600 shadow-sm') : 'text-gray-400 opacity-40 enabled:hover:opacity-100'
               }`}>{d}s</button>
           ))}
         </div>
