@@ -230,7 +230,7 @@ export default function Home({ isDarkMode, themeColor = 'blue' }: { isDarkMode: 
                     <div className="mt-3 flex gap-1.5">
                       {test.words[test.currentWordIndex]?.split('').map((char, i) => (
                         <div key={i} className={`h-1.5 w-3 rounded-full transition-all duration-300 ${isDarkMode ? 'bg-white/10' : 'bg-gray-200'}`}
-                          style={i < test.userInput.length ? { backgroundColor: test.userInput[i] === char ? t.primary : 'rgb(244,63,94)' } : {}} />
+                          style={i < test.userInput.length ? { backgroundColor: test.userInput[i]?.toLowerCase() === char.toLowerCase() ? t.primary : 'rgb(244,63,94)' } : {}} />
                       ))}
                     </div>
                   </motion.div>
