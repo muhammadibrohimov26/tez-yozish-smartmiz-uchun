@@ -1,10 +1,10 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { doc, updateDoc, increment, getDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
-import { db } from '../firebase';
+import { doc, updateDoc, setDoc, increment, getDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { auth, db } from '../firebase';
 import { WORDS, SENTENCES, toCyrillic, getDailyWords, type Language } from '../data/words';
 import type { Difficulty, Duration, TestResult, TestMode, WpmDataPoint } from '../types';
 import { shuffle } from '../lib/shuffle';
-import { compareWord } from '../lib/typing';
+import { compareWord, computeWpm } from '../lib/typing';
 import { readLocal } from '../lib/storage';
 import { maxCorrectChars } from '../lib/limits';
 import { toDateKey } from '../lib/dates';
@@ -134,7 +134,7 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
     const elapsed = (Date.now() - startTimeRef.current) / 60000;
     // Each finished word also cost a space keystroke, which counts toward speed
     // even though it is not one of the word's own characters.
-    let wpm = elapsed > 0 ? Math.round(((cc + completedWordsRef.current) / 5) / elapsed) : 0;
+    const wpm = computeWpm(cc, completedWordsRef.current, elapsed);
     const cpm = elapsed > 0 ? Math.round(cc / elapsed) : 0; // correct chars per minute
     const total = cc + ic;
     const accuracy = total > 0 ? Math.round((cc / total) * 100) : 0;
@@ -149,6 +149,12 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
       difficulty,
       duration,
       date: new Date().toLocaleTimeString(),
+      // Recorded so a stored result can be read back on its own terms: the
+      // history cards used to show every test identically, with no way to tell
+      // a daily challenge or a Russian sentence run from an ordinary one.
+      language,
+      mode: testMode,
+      isDaily,
       charErrors: { ...charErrorsRef.current },
     };
 
@@ -174,8 +180,14 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
       try {
         const userRef = doc(db, 'typingUsers', opts.userId);
         const userSnap = await getDoc(userRef);
+        const authUser = auth.currentUser;
+        let displayName = authUser?.displayName || 'Foydalanuvchi';
+        let email = authUser?.email || '';
+
         if (userSnap.exists()) {
           const data = userSnap.data();
+          displayName = data.displayName || displayName;
+          email = data.email || email;
           const prevTotal = data.totalTests || 0;
           const prevAvg = data.averageWpm || 0;
           const prevBest = data.bestWpm || 0;
@@ -189,21 +201,39 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
             totalTests: increment(1),
             totalCorrectChars: increment(cc),
           });
+        } else {
+          // A signed-in user whose profile document is missing — deleted from the
+          // admin panel, or a sign-up that failed halfway — used to fall through
+          // here and lose the result with no error anywhere. Rebuild the profile
+          // from the auth token and count this test as its first.
+          await setDoc(userRef, {
+            uid: opts.userId,
+            displayName,
+            email,
+            photoURL: authUser?.photoURL || '',
+            createdAt: serverTimestamp(),
+            averageWpm: wpm,
+            bestWpm: wpm,
+            totalTests: 1,
+            totalCorrectChars: cc,
+          });
+        }
 
-          // Anti-cheat: if the raw (uncapped) score passed the hard limit,
-          // notify the admin via the cheatAlerts collection.
-          if (exceeded) {
-            await addDoc(collection(db, 'cheatAlerts'), {
-              userId: opts.userId,
-              displayName: data.displayName || '',
-              email: data.email || '',
-              correctChars: rawCC,
-              wpm: elapsed > 0 ? Math.round((rawCC / 5) / elapsed) : 0,
-              difficulty,
-              duration,
-              createdAt: serverTimestamp(),
-            });
-          }
+        // Anti-cheat: if the raw (uncapped) score passed the hard limit, notify
+        // the admin. Reported with the same WPM formula as the score itself —
+        // its own arithmetic here used to show the admin a slower speed than
+        // the one that tripped the limit.
+        if (exceeded) {
+          await addDoc(collection(db, 'cheatAlerts'), {
+            userId: opts.userId,
+            displayName,
+            email,
+            correctChars: rawCC,
+            wpm: computeWpm(rawCC, completedWordsRef.current, elapsed),
+            difficulty,
+            duration,
+            createdAt: serverTimestamp(),
+          });
         }
       } catch (err) {
         console.error("Failed to save result:", err);
@@ -222,7 +252,7 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
         }
       }
     }
-  }, [opts.userId, opts.groupId, opts.isOwner, opts.cheatMode, difficulty, duration]);
+  }, [opts.userId, opts.groupId, opts.isOwner, opts.cheatMode, difficulty, duration, language, testMode, isDaily]);
 
   const startTest = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
@@ -268,8 +298,7 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
     // WPM history for live chart
     wpmIntervalRef.current = setInterval(() => {
       const elapsed = (Date.now() - startTimeRef.current) / 60000;
-      const typed = correctCharsRef.current + completedWordsRef.current;
-      const wpm = elapsed > 0 ? Math.round((typed / 5) / elapsed) : 0;
+      const wpm = computeWpm(correctCharsRef.current, completedWordsRef.current, elapsed);
       const sec = Math.round((Date.now() - startTimeRef.current) / 1000);
       setWpmHistory(prev => [...prev, { second: sec, wpm }]);
     }, 2000);
@@ -362,7 +391,7 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
 
   // Compute live WPM
   const liveWpm = isActive && startTimeRef.current
-    ? Math.round(((correctChars + completedWordsRef.current) / 5) / ((Date.now() - startTimeRef.current) / 60000)) || 0
+    ? computeWpm(correctChars, completedWordsRef.current, (Date.now() - startTimeRef.current) / 60000)
     : 0;
 
   // Correct chars for display, clamped to the hard cap (lifted only while boosting).

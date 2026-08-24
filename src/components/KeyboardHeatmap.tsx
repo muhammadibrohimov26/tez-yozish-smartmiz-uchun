@@ -2,12 +2,23 @@ import React from 'react';
 
 const KEYBOARD_ROWS = [
   ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
-  ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'],
+  // The apostrophe of o' and g' is a real Uzbek key and a real source of
+  // mistakes; without it every o'/g' error fell off this map silently.
+  ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', "'"],
   ['z', 'x', 'c', 'v', 'b', 'n', 'm'],
 ];
 
+const ON_KEYBOARD = new Set(KEYBOARD_ROWS.flat());
+
 export default function KeyboardHeatmap({ charErrors, isDarkMode }: { charErrors: Record<string, number>; isDarkMode: boolean }) {
   const maxErrors = Math.max(1, ...Object.values(charErrors));
+
+  // Anything this Latin layout cannot show — Cyrillic in Кирил mode, the whole
+  // Russian word list, stray punctuation. These used to be counted and then
+  // quietly dropped, so a Cyrillic test reported no mistakes at all.
+  const offKeyboard = Object.entries(charErrors)
+    .filter(([char]) => !ON_KEYBOARD.has(char))
+    .sort((a, b) => b[1] - a[1]);
 
   const getColor = (char: string) => {
     const errs = charErrors[char] || 0;
@@ -39,6 +50,22 @@ export default function KeyboardHeatmap({ charErrors, isDarkMode }: { charErrors
           </div>
         ))}
       </div>
+      {offKeyboard.length > 0 && (
+        <div className="mt-5 pt-4 border-t border-gray-100 dark:border-white/5">
+          <p className={`text-[10px] font-bold uppercase tracking-widest mb-2 ${isDarkMode ? 'opacity-30' : 'text-gray-400'}`}>
+            Boshqa belgilar
+          </p>
+          <div className="flex flex-wrap justify-center gap-1.5">
+            {offKeyboard.map(([char, count]) => (
+              <span key={char} className={`px-2 h-9 min-w-9 rounded-lg flex items-center justify-center gap-1.5 text-sm font-bold ${getColor(char)}`}>
+                {char === ' ' ? '␣' : char}
+                <span className="text-[10px] opacity-70">{count}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="flex justify-center gap-4 mt-4 text-[10px] font-bold uppercase tracking-widest">
         <span className="flex items-center gap-1.5"><span className={`w-3 h-3 rounded ${isDarkMode ? 'bg-white/5' : 'bg-gray-100'}`} />Xatosiz</span>
         <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-yellow-500/30" />Kam</span>

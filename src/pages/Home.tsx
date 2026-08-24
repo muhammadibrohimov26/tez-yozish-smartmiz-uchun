@@ -288,9 +288,15 @@ export default function Home({ isDarkMode, themeColor = 'blue' }: { isDarkMode: 
                   </div>
                   <span className={`text-[10px] font-mono ${isDarkMode ? 'opacity-30' : 'text-gray-400'}`}>{r.date}</span>
                 </div>
-                <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
                   <span className={isDarkMode ? 'opacity-40' : 'text-gray-500'}>{r.accuracy}% aniqlik</span>
                   <span className={isDarkMode ? 'opacity-40' : 'text-gray-500'}>{r.duration || 60}s</span>
+                  {/* Older stored results predate these fields, so each is optional. */}
+                  {r.isDaily && <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-500">🎯 KUNLIK</span>}
+                  {r.mode === 'sentences' && <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${isDarkMode ? 'bg-white/10 text-white/50' : 'bg-gray-100 text-gray-500'}`}>GAP</span>}
+                  {r.language && r.language !== 'uz' && (
+                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase ${isDarkMode ? 'bg-white/10 text-white/50' : 'bg-gray-100 text-gray-500'}`}>{r.language}</span>
+                  )}
                 </div>
                 <div className={`flex gap-4 mt-2 pt-2 border-t text-xs ${isDarkMode ? 'border-white/5' : 'border-gray-100'}`}>
                   <span className="text-blue-400">✓ {r.correctChars || 0} belgi</span>

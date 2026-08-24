@@ -40,3 +40,17 @@ export function compareWord(typed: string, target: string): WordComparison {
 
   return { correctChars, incorrectChars, isCorrect, errorChars };
 }
+
+/**
+ * Words-per-minute from correct characters plus one space per finished word.
+ *
+ * A "word" is the conventional five characters, and the space that ends a word
+ * is a keystroke the typist really made — leaving it out understates short
+ * words. Shared so every readout agrees: the final result, the live counter,
+ * the chart samples, the battle rounds, and the anti-cheat alert (which used a
+ * formula of its own and reported a lower speed than the one being flagged).
+ */
+export function computeWpm(correctChars: number, completedWords: number, elapsedMinutes: number): number {
+  if (elapsedMinutes <= 0) return 0;
+  return Math.round(((correctChars + completedWords) / 5) / elapsedMinutes);
+}

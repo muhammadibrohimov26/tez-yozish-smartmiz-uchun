@@ -9,8 +9,24 @@ export const THEMES: Record<ThemeColor, { primary: string; glow: string; bg: str
   cyan:    { primary: 'rgb(6,182,212)',   glow: 'rgba(6,182,212,0.4)',   bg: 'bg-cyan-600',    text: 'text-cyan-500',    gradient: 'from-cyan-500 to-sky-600', hover: 'hover:bg-cyan-700', shadow: 'shadow-cyan-600/30', border: 'border-cyan-500', activeBg: 'bg-cyan-500/10', lightBg: 'bg-cyan-50' },
 };
 
+export const DEFAULT_THEME: ThemeColor = 'blue';
+
+/** Whether a stored string is a theme we actually have. */
+export function isThemeColor(value: string | null): value is ThemeColor {
+  return value !== null && Object.prototype.hasOwnProperty.call(THEMES, value);
+}
+
 export function getTheme(): ThemeColor {
-  return (localStorage.getItem('smartmiz_theme') as ThemeColor) || 'blue';
+  // The stored value was cast straight to ThemeColor and trusted. A stale or
+  // hand-edited key (an old palette name, junk) then reached applyTheme, where
+  // THEMES[color] is undefined and reading `.primary` throws — taking down every
+  // page that resolves the theme on mount. Fall back to the default instead.
+  try {
+    const saved = localStorage.getItem('smartmiz_theme');
+    return isThemeColor(saved) ? saved : DEFAULT_THEME;
+  } catch {
+    return DEFAULT_THEME;
+  }
 }
 
 export function setTheme(color: ThemeColor) {
@@ -20,7 +36,7 @@ export function setTheme(color: ThemeColor) {
 }
 
 export function applyTheme(color: ThemeColor) {
-  const t = THEMES[color];
+  const t = THEMES[color] ?? THEMES[DEFAULT_THEME];
   document.documentElement.style.setProperty('--accent', t.primary);
   document.documentElement.style.setProperty('--accent-glow', t.glow);
 }
