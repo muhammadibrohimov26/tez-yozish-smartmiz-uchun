@@ -70,7 +70,11 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
     }
     if (testMode === 'sentences') {
       const sents = SENTENCES[language] || SENTENCES.uz;
-      const allWords = sents.join(' ').split(' ');
+      // The Cyrillic toggle applies to sentences too. It was skipped before
+      // because toCyrillic lowercases (losing a sentence's capitals) — but the
+      // app now types and scores in lowercase anyway, so lowering is harmless
+      // and Кирил + Gap finally shows Cyrillic instead of Latin.
+      const allWords = localize(sents.join(' ').split(' '));
       setWords([...allWords, ...allWords, ...allWords]);
       return;
     }
