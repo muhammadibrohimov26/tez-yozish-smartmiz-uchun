@@ -1,4 +1,6 @@
 import type { Badge } from '../types';
+import { toDateKey } from '../lib/dates';
+import { readLocal } from '../lib/storage';
 
 export const BADGES: Badge[] = [
   { id: 'first_test', name: 'Birinchi qadam', description: 'Birinchi testni topshiring', icon: '🎯',
@@ -36,34 +38,26 @@ export function getEarnedBadges(stats: { totalTests: number; bestWpm: number; av
 }
 
 export function getStreak(): number {
-  const streakDates = JSON.parse(localStorage.getItem('typing_streak_dates') || '[]') as string[];
-  if (streakDates.length === 0) return 0;
+  const days = new Set(readLocal<string[]>('typing_streak_dates', []));
+  if (days.size === 0) return 0;
 
-  const todayStr = new Date().toDateString();
-  const yesterdayStr = new Date(Date.now() - 86400000).toDateString();
-  
-  // If the user hasn't typed today and didn't type yesterday, the streak is broken
-  if (!streakDates.includes(todayStr) && !streakDates.includes(yesterdayStr)) {
-    return 0;
-  }
+  const today = toDateKey();
+  const yesterday = toDateKey(new Date(Date.now() - 86400000));
 
-  // Count consecutive days from today or yesterday backwards
+  // Typed neither today nor yesterday — the chain is broken.
+  if (!days.has(today) && !days.has(yesterday)) return 0;
+
+  // Count backwards from today, or from yesterday when today's session has not
+  // happened yet, so an unfinished day does not read as a broken streak.
+  const cursor = new Date();
+  if (!days.has(today)) cursor.setDate(cursor.getDate() - 1);
+
   let streak = 0;
-  const now = new Date();
-  
-  // If they typed yesterday but haven't typed yet today, start counting from yesterday
-  if (!streakDates.includes(todayStr) && streakDates.includes(yesterdayStr)) {
-    now.setDate(now.getDate() - 1);
-  }
-  
   for (let i = 0; i < 365; i++) {
-    const d = new Date(now);
-    d.setDate(d.getDate() - i);
-    if (streakDates.includes(d.toDateString())) {
-      streak++;
-    } else {
-      break;
-    }
+    const day = new Date(cursor);
+    day.setDate(day.getDate() - i);
+    if (!days.has(toDateKey(day))) break;
+    streak++;
   }
   return streak;
 }

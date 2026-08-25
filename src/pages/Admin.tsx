@@ -5,6 +5,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { Settings, Trash2, Users, FolderKanban, RotateCcw, AlertTriangle } from 'lucide-react';
 import { ZERO_STATS } from '../lib/resetStats';
+import { MAX_PLAUSIBLE_WPM, maxCorrectChars } from '../lib/limits';
 import type { UserProfile, Group, CheatAlert } from '../types';
 
 export default function Admin({ isDarkMode }: { isDarkMode: boolean }) {
@@ -187,8 +188,14 @@ export default function Admin({ isDarkMode }: { isDarkMode: boolean }) {
         <h2 className="text-xl font-bold mb-6 flex items-center gap-2 text-amber-500">
           <AlertTriangle className="w-5 h-5" /> Limitdan oshgan natijalar ({alerts.length})
         </h2>
+        <p className={`text-xs -mt-4 mb-6 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+          Chegara test uzunligiga qarab hisoblanadi ({MAX_PLAUSIBLE_WPM} WPM tezligidagi belgilar soni):
+          15s uchun {maxCorrectChars(15)}, 120s uchun {maxCorrectChars(120)} belgi.
+        </p>
         {alerts.length === 0 ? (
-          <p className="text-center py-8 opacity-50">Ogohlantirishlar yo'q — hamma {`190`} belgi limitida.</p>
+          <p className="text-center py-8 opacity-50">
+            Ogohlantirishlar yo'q — hamma {MAX_PLAUSIBLE_WPM} WPM chegarasi ichida.
+          </p>
         ) : (
           <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
             {alerts.map(a => (

@@ -97,12 +97,16 @@ export default function Home({ isDarkMode, themeColor = 'blue' }: { isDarkMode: 
           ))}
         </div>
 
-        {/* Duration */}
+        {/* Duration — locked while a test runs. The anti-cheat cap is derived from
+            this value, so switching 120s → 15s mid-test would clamp an honest
+            score to a quarter of its limit and report the user to the admin. */}
         <div className={`flex items-center p-1 rounded-2xl border ${isDarkMode ? 'border-white/5 bg-white/5' : 'border-gray-200 bg-white shadow-sm'}`}>
           {durations.map(d => (
-            <button key={d} onClick={() => test.setDuration(d)}
-              className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                test.duration === d ? (isDarkMode ? 'bg-white/10 text-white' : 'bg-white text-blue-600 shadow-sm') : 'text-gray-400 opacity-40 hover:opacity-100'
+            <button key={d} onClick={() => { if (!test.isActive) test.setDuration(d); }}
+              disabled={test.isActive}
+              title={test.isActive ? 'Test tugagach o\'zgartirish mumkin' : undefined}
+              className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all disabled:cursor-not-allowed ${
+                test.duration === d ? (isDarkMode ? 'bg-white/10 text-white' : 'bg-white text-blue-600 shadow-sm') : 'text-gray-400 opacity-40 enabled:hover:opacity-100'
               }`}>{d}s</button>
           ))}
         </div>
@@ -226,7 +230,7 @@ export default function Home({ isDarkMode, themeColor = 'blue' }: { isDarkMode: 
                     <div className="mt-3 flex gap-1.5">
                       {test.words[test.currentWordIndex]?.split('').map((char, i) => (
                         <div key={i} className={`h-1.5 w-3 rounded-full transition-all duration-300 ${isDarkMode ? 'bg-white/10' : 'bg-gray-200'}`}
-                          style={i < test.userInput.length ? { backgroundColor: test.userInput[i] === char ? t.primary : 'rgb(244,63,94)' } : {}} />
+                          style={i < test.userInput.length ? { backgroundColor: test.userInput[i]?.toLowerCase() === char.toLowerCase() ? t.primary : 'rgb(244,63,94)' } : {}} />
                       ))}
                     </div>
                   </motion.div>
@@ -284,9 +288,15 @@ export default function Home({ isDarkMode, themeColor = 'blue' }: { isDarkMode: 
                   </div>
                   <span className={`text-[10px] font-mono ${isDarkMode ? 'opacity-30' : 'text-gray-400'}`}>{r.date}</span>
                 </div>
-                <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
                   <span className={isDarkMode ? 'opacity-40' : 'text-gray-500'}>{r.accuracy}% aniqlik</span>
                   <span className={isDarkMode ? 'opacity-40' : 'text-gray-500'}>{r.duration || 60}s</span>
+                  {/* Older stored results predate these fields, so each is optional. */}
+                  {r.isDaily && <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-500">🎯 KUNLIK</span>}
+                  {r.mode === 'sentences' && <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${isDarkMode ? 'bg-white/10 text-white/50' : 'bg-gray-100 text-gray-500'}`}>GAP</span>}
+                  {r.language && r.language !== 'uz' && (
+                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase ${isDarkMode ? 'bg-white/10 text-white/50' : 'bg-gray-100 text-gray-500'}`}>{r.language}</span>
+                  )}
                 </div>
                 <div className={`flex gap-4 mt-2 pt-2 border-t text-xs ${isDarkMode ? 'border-white/5' : 'border-gray-100'}`}>
                   <span className="text-blue-400">✓ {r.correctChars || 0} belgi</span>

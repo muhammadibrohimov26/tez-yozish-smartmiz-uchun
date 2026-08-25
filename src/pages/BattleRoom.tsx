@@ -6,7 +6,7 @@ import { Trophy, ArrowLeft, Zap, Users, Timer, Crown } from 'lucide-react';
 import { motion } from 'motion/react';
 import type { BattleParticipant } from '../types';
 import { useServerClock } from '../hooks/useServerTime';
-import { compareWord } from '../lib/typing';
+import { compareWord, computeWpm } from '../lib/typing';
 import { useCheatMode } from '../hooks/useCheatMode';
 import { BATTLE_COUNTDOWN_MS, BATTLE_ROUND_MS } from '../lib/battle';
 
@@ -105,7 +105,7 @@ export default function BattleRoom({ isDarkMode, themeColor = 'blue' }: { isDark
         const live = liveRef.current;
         // Record my own result once (works even if the tab was backgrounded).
         if (live.user && live.me && !live.me.isFinished) {
-          const finalWpm = Math.round((correctCharsRef.current + completedWordsRef.current) / 5); // exactly 1 minute
+          const finalWpm = computeWpm(correctCharsRef.current, completedWordsRef.current, BATTLE_ROUND_MS / 60000);
           const totalTyped = correctCharsRef.current + incorrectCharsRef.current;
           const finalAccuracy = totalTyped > 0 ? Math.round((correctCharsRef.current / totalTyped) * 100) : 0;
           live.finishRound(finalWpm, finalAccuracy, correctCharsRef.current);
@@ -197,9 +197,7 @@ export default function BattleRoom({ isDarkMode, themeColor = 'blue' }: { isDark
     setCurrentWordIndex(currentWordIndex + 1);
 
     const elapsedMinutes = typingStartLocalRef.current ? (Date.now() - typingStartLocalRef.current) / 60000 : 0;
-    const currentWpm = elapsedMinutes > 0
-      ? Math.round(((newCorrect + completedWordsRef.current) / 5) / elapsedMinutes)
-      : 0;
+    const currentWpm = computeWpm(newCorrect, completedWordsRef.current, elapsedMinutes);
 
     // In 60s mode progress is the character count (used only for the comparison bars).
     pushProgress(newCorrect, currentWpm);

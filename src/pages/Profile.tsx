@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { doc, updateDoc } from 'firebase/firestore';
-import { db } from '../firebase';
 import { useAuth } from '../hooks/useAuth';
 import { Pencil, Check, X, Palette, Shield, Trash2 } from 'lucide-react';
 import { BADGES, getEarnedBadges, getStreak } from '../data/badges';
 import { THEMES, getTheme, setTheme as saveTheme } from '../data/themes';
 import { isOwnerUser } from '../lib/owner';
+import { updateDisplayName } from '../lib/displayName';
 import { resetOwnerStats } from '../lib/resetStats';
 import { safeParse } from '../lib/storage';
 import type { ThemeColor, TestResult } from '../types';
@@ -15,6 +14,7 @@ export default function Profile({ isDarkMode, onThemeChange }: { isDarkMode: boo
   const [editing, setEditing] = useState(false);
   const [newName, setNewName] = useState('');
   const [saving, setSaving] = useState(false);
+  const [nameError, setNameError] = useState('');
   const [showThemes, setShowThemes] = useState(false);
   const [currentTheme, setCurrentTheme] = useState<ThemeColor>(getTheme());
   const card = `rounded-[24px] border p-6 ${isDarkMode ? 'border-white/5 bg-white/5' : 'border-gray-200 bg-white'}`;
@@ -39,13 +39,20 @@ export default function Profile({ isDarkMode, onThemeChange }: { isDarkMode: boo
   });
 
   const handleSaveName = async () => {
-    if (!newName.trim() || !profile.uid) return;
+    if (!newName.trim() || !profile.uid || saving) return;
     setSaving(true);
+    setNameError('');
     try {
-      await updateDoc(doc(db, 'typingUsers', profile.uid), { displayName: newName.trim() });
+      // Renames the profile AND every group copy of the name; see lib/displayName.
+      await updateDisplayName(profile.uid, newName.trim());
       window.location.reload();
-    } catch (e) { console.error(e); }
-    setSaving(false);
+    } catch (e) {
+      // Previously this only reached the console: the dialog stayed open with no
+      // explanation and the user could not tell a failure from a slow save.
+      console.error('Ismni saqlashda xatolik:', e);
+      setNameError("Ismni saqlab bo'lmadi. Qaytadan urinib ko'ring.");
+      setSaving(false);
+    }
   };
 
   const handleThemeChange = (color: ThemeColor) => {
@@ -88,7 +95,7 @@ export default function Profile({ isDarkMode, onThemeChange }: { isDarkMode: boo
               className="p-2 rounded-lg bg-emerald-500/20 text-emerald-500 hover:bg-emerald-500/30 transition-all disabled:opacity-30">
               <Check className="w-5 h-5" />
             </button>
-            <button onClick={() => setEditing(false)}
+            <button onClick={() => { setEditing(false); setNameError(''); }}
               className="p-2 rounded-lg bg-rose-500/20 text-rose-500 hover:bg-rose-500/30 transition-all">
               <X className="w-5 h-5" />
             </button>
@@ -102,6 +109,7 @@ export default function Profile({ isDarkMode, onThemeChange }: { isDarkMode: boo
             </button>
           </div>
         )}
+        {nameError && <p className="text-rose-500 text-sm mt-2">{nameError}</p>}
         <p className={`text-sm mt-1 ${isDarkMode ? 'opacity-30' : 'text-gray-400'}`}>{profile.email}</p>
       </div>
 

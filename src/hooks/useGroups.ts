@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc, arrayUnion, arrayRemove, serverTimestamp, onSnapshot, orderBy, limit } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc, arrayUnion, arrayRemove, increment, serverTimestamp, onSnapshot, orderBy, limit } from 'firebase/firestore';
 import { db } from '../firebase';
 import type { Group, GroupMember, TestResult } from '../types';
 
@@ -44,8 +44,10 @@ export function useGroups(userId?: string) {
     const groupDoc = snap.docs[0];
     const data = groupDoc.data();
     if (data.memberIds?.includes(userId)) throw new Error('Siz allaqachon a\'zosiz');
+    // increment() rather than a read-then-write: two people joining at once
+    // both read the same old count and the second write loses the first.
     await updateDoc(doc(db, 'groups', groupDoc.id), {
-      memberIds: arrayUnion(userId), memberCount: (data.memberCount || 0) + 1,
+      memberIds: arrayUnion(userId), memberCount: increment(1),
     });
     await addDoc(collection(db, 'groups', groupDoc.id, 'members'), {
       userId, displayName, photoURL, averageWpm: 0, bestWpm: 0, totalTests: 0,
@@ -53,16 +55,31 @@ export function useGroups(userId?: string) {
     return groupDoc.id;
   };
 
-  const leaveGroup = async (groupId: string) => {
-    if (!userId) return;
-    await updateDoc(doc(db, 'groups', groupId), { memberIds: arrayRemove(userId) });
-    // Remove member doc
-    const memQ = query(collection(db, 'groups', groupId, 'members'), where('userId', '==', userId));
-    const memSnap = await getDocs(memQ);
-    for (const d of memSnap.docs) await deleteDoc(d.ref);
-  };
+  const leave = useCallback(
+    (groupId: string) => (userId ? leaveGroup(groupId, userId) : Promise.resolve()),
+    [userId],
+  );
 
-  return { groups, loading, createGroup, joinGroup, leaveGroup };
+  return { groups, loading, createGroup, joinGroup, leaveGroup: leave };
+}
+
+/**
+ * Remove a user from a group: membership array, member count, and their member
+ * document. Standalone rather than part of `useGroups` so a page that only needs
+ * to leave (GroupDetail) does not also open that hook's groups listener.
+ */
+export async function leaveGroup(groupId: string, userId: string): Promise<void> {
+  // memberCount must fall alongside memberIds. Leaving only removed the id, so
+  // the count kept climbing and group cards showed more members than existed.
+  await updateDoc(doc(db, 'groups', groupId), {
+    memberIds: arrayRemove(userId), memberCount: increment(-1),
+  });
+  const memberQuery = query(
+    collection(db, 'groups', groupId, 'members'),
+    where('userId', '==', userId),
+  );
+  const memberSnap = await getDocs(memberQuery);
+  for (const memberDoc of memberSnap.docs) await deleteDoc(memberDoc.ref);
 }
 
 export function useGroupDetail(groupId: string | undefined) {
