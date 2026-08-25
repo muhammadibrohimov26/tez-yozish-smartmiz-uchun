@@ -80,8 +80,14 @@ export function useTypingTest(opts: UseTypingTestOptions = {}) {
   }, [localize, difficulty, language, testMode, isDaily]);
 
   useEffect(() => {
+    // Never swap the word list out from under a running test. The control
+    // buttons already avoid calling generateWords() while active, but this
+    // effect fired on every setting change regardless — so clicking Qiyin (or a
+    // language/mode) mid-test replaced the word under the cursor. startTest and
+    // resetTest regenerate explicitly, so skipping here while active is safe.
+    if (isActive) return;
     generateWords();
-  }, [generateWords]);
+  }, [generateWords, isActive]);
 
   const playSound = (type: 'incorrect' | 'finish') => {
     try {
