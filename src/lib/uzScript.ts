@@ -45,7 +45,8 @@ const EXCEPTIONS: Record<string, string> = {
   yanvar: 'январь', fevral: 'февраль', aprel: 'апрель', iyun: 'июнь', iyul: 'июль',
   sentyabr: 'сентябрь', oktyabr: 'октябрь', noyabr: 'ноябрь', dekabr: 'декабрь',
   litsey: 'лицей', ofitser: 'офицер', investitsiya: 'инвестиция', mototsikl: 'мотоцикл',
-  sirk: 'цирк', konsert: 'концерт',
+  sirk: 'цирк', konsert: 'концерт', mebel: 'мебель', model: 'модель', spektakl: 'спектакль',
+  sement: 'цемент', stansiya: 'станция', aksiya: 'акция', kvitansiya: 'квитанция', pyesa: 'пьеса',
 };
 
 /**

@@ -3,8 +3,10 @@ import { shuffle } from '../lib/shuffle';
 import { tokenizeLatin, hasReliableCyrillic } from '../lib/uzScript';
 import {
   SAME_LETTER_WORDS, DIFFERENT_LETTER_WORDS, DIGRAPH_WORDS, APOSTROPHE_WORDS, IOTATED_WORDS,
-  CONFUSABLE_WORDS, ADMIN_WORDS, ADMIN_SENTENCES,
+  CONFUSABLE_WORDS, ADMIN_WORDS,
 } from './translit';
+import { THEMES_VOCAB, FREQUENT_WORDS } from './translitContent';
+import { TRANSLIT_COURSE } from './translitCourse';
 
 export type Finger =
   | 'left-pinky' | 'left-ring' | 'left-middle' | 'left-index'
@@ -82,6 +84,8 @@ export const TRACKS: { id: LessonTrack; title: string; subtitle: string }[] = [
 export interface Lesson {
   id: string;
   track: LessonTrack;
+  /** The module ("bo'lim") a lesson belongs to — groups the long course on the Lessons page. */
+  module?: string;
   title: string;
   description: string;
   /** A practical hint shown in a callout above the drill. */
@@ -108,6 +112,14 @@ export interface Lesson {
    * key) is revealed only after a mistake.
    */
   hideLatin?: boolean;
+  /** Drill bare syllables built from the letters learned so far — for meeting new keys. */
+  syllables?: boolean;
+  /** A review drill: half its words use these sounds, the other half anything learned so far. */
+  reviewTokens?: string[];
+  /** Like `reviewTokens`, for groups defined by a pattern instead of a sound (НГ). */
+  reviewFilter?: (word: string) => boolean;
+  /** Target length of a sentence drill in characters; 1 means "exactly one item" (whole texts). */
+  textLength?: number;
   /** New keys introduced by this lesson. */
   keys: string[];
   /** This lesson's keys plus every previous lesson's keys. */
@@ -141,7 +153,7 @@ export interface Lesson {
   useSentences?: boolean;
 }
 
-type RawLesson = Omit<Lesson, 'allowedKeys' | 'allowedTokens' | 'track'>;
+export type RawLesson = Omit<Lesson, 'allowedKeys' | 'allowedTokens' | 'track'>;
 
 const TOUCH_LESSONS: RawLesson[] = [
   {
@@ -306,139 +318,6 @@ const TOUCH_LESSONS: RawLesson[] = [
 ];
 
 
-/** Sounds that trip up a Cyrillic typist — the "hidden Latin" drills insist on them. */
-const TRICKY_TOKENS = ['q', 'h', 'x', 'j', 'y', 'sh', 'ch', "o'", "g'", "'", 'yo', 'yu', 'ya', 'ye'];
-
-const TRANSLIT_LESSONS: RawLesson[] = [
-  {
-    id: 'kl-same',
-    title: 'Bir xil harflar',
-    description: "Bu harflar kirillda ham, lotinda ham bir xil o'qiladi — faqat klaviaturadagi o'rni boshqa. Har so'z ustida uning kirillchasi turadi.",
-    tip: "Avval klaviaturani lotinga (EN) o'tkazing: Windows'da Alt+Shift yoki Win+Probel, Mac'da Ctrl+Probel. Ekranning pastki o'ng burchagida EN yozuvi chiqishi kerak.",
-    letterMap: [
-      { cyr: 'А', lat: 'a' }, { cyr: 'Б', lat: 'b' }, { cyr: 'В', lat: 'v' }, { cyr: 'Г', lat: 'g' },
-      { cyr: 'Д', lat: 'd' }, { cyr: 'Е / Э', lat: 'e' }, { cyr: 'З', lat: 'z' }, { cyr: 'И', lat: 'i' },
-      { cyr: 'К', lat: 'k' }, { cyr: 'Л', lat: 'l' }, { cyr: 'М', lat: 'm' }, { cyr: 'Н', lat: 'n' },
-      { cyr: 'О', lat: 'o' }, { cyr: 'П', lat: 'p' }, { cyr: 'Р', lat: 'r' }, { cyr: 'С', lat: 's' },
-      { cyr: 'Т', lat: 't' }, { cyr: 'У', lat: 'u' }, { cyr: 'Ф', lat: 'f' },
-    ],
-    keys: [],
-    tokens: ['a', 'b', 'v', 'g', 'd', 'e', 'z', 'i', 'k', 'l', 'm', 'n', 'o', 'p', 'r', 's', 't', 'u', 'f'],
-    customWords: SAME_LETTER_WORDS,
-    cyrillicHint: true,
-  },
-  {
-    id: 'kl-different',
-    title: 'Farqli harflar: Қ Ҳ Х Ж Й',
-    description: "Eng ko'p xato shu yerda: Х — bu X, Ҳ — bu H. Қ — Q, Ж — J, Й — Y.",
-    tip: "Eslab qoling: kirilldagi Х lotinda X bo'ladi (xat, xona), H esa faqat Ҳ uchun (hafta, hisob).",
-    letterMap: [
-      { cyr: 'Қ', lat: 'q' }, { cyr: 'Ҳ', lat: 'h' }, { cyr: 'Х', lat: 'x' },
-      { cyr: 'Ж', lat: 'j' }, { cyr: 'Й', lat: 'y' },
-    ],
-    keys: [],
-    tokens: ['q', 'h', 'x', 'j', 'y'],
-    customWords: DIFFERENT_LETTER_WORDS,
-    cyrillicHint: true,
-  },
-  {
-    id: 'kl-digraphs',
-    title: 'Ikki harfli tovushlar: Ш Ч',
-    description: 'Bitta kirill harfi — ikkita lotin harfi. Ш = s + h, Ч = c + h. НГ esa o\'zgarmaydi: ng.',
-    tip: "Ikki harfni bitta harakatdek, uzilishsiz yozishga harakat qiling: sh, ch.",
-    letterMap: [{ cyr: 'Ш', lat: 'sh' }, { cyr: 'Ч', lat: 'ch' }, { cyr: 'НГ', lat: 'ng' }],
-    keys: [],
-    tokens: ['sh', 'ch'],
-    customWords: DIGRAPH_WORDS,
-    cyrillicHint: true,
-  },
-  {
-    id: 'kl-apostrophe',
-    title: "Apostrofli harflar: Ў Ғ Ъ",
-    description: "Ў va Ғ harf + apostrof bilan yoziladi: o', g'. Ъ (tutuq belgisi) esa faqat apostrof: маълумот → ma'lumot.",
-    tip: "Apostrof ( ' ) tugmasi L dan keyin ikkinchi — kirill klaviaturada bu Э tugmasi. Uni o'ng jimjiloq bilan bosing.",
-    letterMap: [{ cyr: 'Ў', lat: "o'" }, { cyr: 'Ғ', lat: "g'" }, { cyr: 'Ъ', lat: "'" }],
-    keys: [],
-    tokens: ["o'", "g'", "'"],
-    customWords: APOSTROPHE_WORDS,
-    cyrillicHint: true,
-  },
-  {
-    id: 'kl-iotated',
-    title: 'Ё Ю Я Е: y + unli',
-    description: "Bu harflar lotinda ikki harf bilan yoziladi: ё → yo, ю → yu, я → ya. Е so'z boshida va unlidan keyin ye bo'ladi: ер → yer.",
-    tip: "Ц harfi lotinda s yoki ts bo'ladi: цирк → sirk, лицей → litsey. Ь (yumshatish belgisi) umuman yozilmaydi.",
-    letterMap: [
-      { cyr: 'Ё', lat: 'yo' }, { cyr: 'Ю', lat: 'yu' }, { cyr: 'Я', lat: 'ya' },
-      { cyr: 'Е', lat: 'ye' }, { cyr: 'Ц', lat: 's / ts' }, { cyr: 'Ь', lat: '—' },
-    ],
-    keys: [],
-    tokens: ['yo', 'yu', 'ya', 'ye'],
-    customWords: IOTATED_WORDS,
-    cyrillicHint: true,
-  },
-  {
-    id: 'kl-words',
-    title: "Barcha harflar: so'zlar",
-    description: "Endi barcha harflar aralash. Kirillcha so'zga qarab, uni lotinda yozing.",
-    keys: [],
-    tokens: [],
-    cyrillicHint: true,
-  },
-  {
-    id: 'kl-confusable',
-    title: 'X yoki H? Q yoki K?',
-    description: "Sinov: lotin yozuvi yashirin, faqat kirillcha so'z ko'rinadi. Xato qilsangiz, to'g'ri harf va tugma ko'rsatiladi.",
-    tip: 'Х → x, Ҳ → h, Қ → q, К → k. Shoshmang — avval o\'ylang, keyin bosing.',
-    letterMap: [{ cyr: 'Х', lat: 'x' }, { cyr: 'Ҳ', lat: 'h' }, { cyr: 'Қ', lat: 'q' }, { cyr: 'К', lat: 'k' }],
-    keys: [],
-    tokens: [],
-    customWords: CONFUSABLE_WORDS,
-    cyrillicHint: true,
-    hideLatin: true,
-    wordCount: 18,
-  },
-  {
-    id: 'kl-admin-words',
-    title: "Ish so'zlari",
-    description: "O'quv markazida har kuni yoziladigan so'zlar: o'quvchi, to'lov, shartnoma, davomat, hisobot.",
-    keys: [],
-    tokens: [],
-    customWords: ADMIN_WORDS,
-    cyrillicHint: true,
-  },
-  {
-    id: 'kl-hidden-words',
-    title: "Yashirin lotin: so'zlar",
-    description: "Faqat kirillcha so'z ko'rinadi — lotinchasini o'zingiz eslab yozing. Har bir so'zda kamida bitta qiyin harf bor.",
-    keys: [],
-    tokens: [],
-    cyrillicHint: true,
-    hideLatin: true,
-    wordFilter: word => tokenizeLatin(word).some(t => TRICKY_TOKENS.includes(t.lat)),
-    wordCount: 18,
-  },
-  {
-    id: 'kl-messages',
-    title: 'Xabarlar yozish',
-    description: "Ota-onalar va o'quvchilarga yuboriladigan haqiqiy xabarlar: bosh harf, vergul va nuqta bilan.",
-    keys: [],
-    tokens: [],
-    customSentences: ADMIN_SENTENCES,
-    cyrillicHint: true,
-  },
-  {
-    id: 'kl-final',
-    title: 'Yakuniy sinov: xabarlar',
-    description: "Faqat kirillcha matn ko'rinadi — butun xabarni lotinda yozing. Buni 90% aniqlik bilan o'tsangiz, lotinda bemalol yoza olasiz!",
-    keys: [],
-    tokens: [],
-    customSentences: [...ADMIN_SENTENCES, ...SENTENCES.uz],
-    cyrillicHint: true,
-    hideLatin: true,
-  },
-];
-
 /** Rolls each lesson's newly taught keys / sounds forward into its successors, within one track. */
 function buildTrack(track: LessonTrack, raw: RawLesson[]): Lesson[] {
   return raw.reduce<Lesson[]>((acc, lesson) => {
@@ -452,7 +331,7 @@ function buildTrack(track: LessonTrack, raw: RawLesson[]): Lesson[] {
 
 /** Every lesson, Cyrillic → Latin course first. */
 export const LESSONS: Lesson[] = [
-  ...buildTrack('translit', TRANSLIT_LESSONS),
+  ...buildTrack('translit', TRANSLIT_COURSE),
   ...buildTrack('touch', TOUCH_LESSONS),
 ];
 
@@ -482,34 +361,104 @@ const TYPEABLE_WORD = /^[a-z']+$/;
 const TRANSLIT_POOL = Array.from(new Set([
   ...WORDS.uz.easy, ...WORDS.uz.medium, ...WORDS.uz.hard,
   ...SAME_LETTER_WORDS, ...DIFFERENT_LETTER_WORDS, ...DIGRAPH_WORDS, ...APOSTROPHE_WORDS,
-  ...IOTATED_WORDS, ...ADMIN_WORDS,
+  ...IOTATED_WORDS, ...CONFUSABLE_WORDS, ...ADMIN_WORDS, ...FREQUENT_WORDS,
+  ...THEMES_VOCAB.flatMap(t => t.words),
 ])).filter(w => TYPEABLE_WORD.test(w) && hasReliableCyrillic(w));
+
+/** Curated lists may hold names (capitals) and hyphenated words. */
+const CUSTOM_WORD = /^[A-Za-z'-]+$/;
 
 /** Whether a word uses only sounds taught so far, and at least one of this lesson's new ones. */
 function fitsTranslitLesson(word: string, lesson: Lesson): boolean {
   const allowed = new Set(lesson.allowedTokens ?? []);
   const fresh = lesson.tokens ?? [];
-  const tokens = tokenizeLatin(word).map(t => t.lat);
+  const tokens = tokenizeLatin(word).map(t => t.lat).filter(t => /[a-z']/.test(t));
   if (!tokens.every(t => allowed.has(t))) return false;
   if (fresh.length > 0 && !tokens.some(t => fresh.includes(t))) return false;
   return lesson.wordFilter ? lesson.wordFilter(word) : true;
 }
 
+const VOWEL_TOKENS = new Set(['a', 'o', 'i', 'u', 'e', "o'", 'yo', 'yu', 'ya', 'ye']);
+
+/**
+ * Bare syllables from the sounds learned so far — the first look at new keys.
+ * Opens with each new letter on its own, then mixes CV / VC / CVC / CVCV
+ * shapes, nearly always including a new sound. A syllable whose letters would
+ * re-read as a sound not yet taught (s + h reads as ш) is thrown away.
+ */
+function generateSyllables(lesson: Lesson, count = 26): string[] {
+  const allowed = new Set(lesson.allowedTokens ?? []);
+  const usable = (lesson.allowedTokens ?? []).filter(t => t !== "'");
+  const vowels = usable.filter(t => VOWEL_TOKENS.has(t));
+  const consonants = usable.filter(t => !VOWEL_TOKENS.has(t));
+  const fresh = (lesson.tokens ?? []).filter(t => t !== "'");
+  const pick = (list: string[]) => list[Math.floor(Math.random() * list.length)];
+  const shapes = ['CV', 'VC', 'CVC', 'CVCV', 'VCV', 'CV'];
+
+  const syllables: string[] = [];
+  let guard = 0;
+  while (syllables.length < count - fresh.length && guard++ < 2000) {
+    const shape = pick(shapes);
+    const slots = shape.split('').map(kind => (kind === 'V' ? pick(vowels) : pick(consonants)));
+    if (slots.some(s => s === undefined)) continue;
+    // Make sure most syllables practise a new sound: swap one in where the kind fits.
+    if (fresh.length && Math.random() < 0.8 && !slots.some(s => fresh.includes(s))) {
+      const candidate = pick(fresh);
+      const kind = VOWEL_TOKENS.has(candidate) ? 'V' : 'C';
+      const at = shape.split('').findIndex(k => k === kind);
+      if (at >= 0) slots[at] = candidate;
+    }
+    const syllable = slots.join('');
+    const reread = tokenizeLatin(syllable).map(t => t.lat);
+    if (!reread.every(t => allowed.has(t))) continue;
+    syllables.push(syllable);
+  }
+  // Each new letter once on its own first, so the learner finds its key in isolation.
+  return [...fresh, ...syllables];
+}
+
 function generateTranslitText(lesson: Lesson): string {
   if (lesson.customSentences) {
+    const target = lesson.textLength ?? 120;
     const picked: string[] = [];
     let length = 0;
-    // About 120 characters: two or three messages, long enough to mean something.
+    // About 120 characters by default: two or three messages, long enough to mean something.
     for (const sentence of shuffle(lesson.customSentences)) {
-      if (length >= 120) break;
+      if (length >= target) break;
       picked.push(sentence);
       length += sentence.length + 1;
     }
     return picked.join(' ');
   }
-  const source = (lesson.customWords ?? TRANSLIT_POOL).filter(w => TYPEABLE_WORD.test(w) && hasReliableCyrillic(w));
+
+  const count = lesson.wordCount ?? 20;
+  if (lesson.syllables) return generateSyllables(lesson, count + 6).join(' ');
+
+  const source = lesson.customWords
+    ? lesson.customWords.filter(w => CUSTOM_WORD.test(w) && hasReliableCyrillic(w))
+    : TRANSLIT_POOL;
   const candidates = source.filter(w => fitsTranslitLesson(w, lesson));
-  return shuffle(candidates).slice(0, lesson.wordCount ?? 20).join(' ');
+
+  let picked: string[];
+  if (lesson.reviewTokens || lesson.reviewFilter) {
+    // Half on the group just learned, half on everything before it.
+    const focus = lesson.reviewFilter ?? ((w: string) => tokenizeLatin(w).some(t => lesson.reviewTokens!.includes(t.lat)));
+    const focused = shuffle(candidates.filter(focus));
+    const rest = shuffle(candidates.filter(w => !focus(w)));
+    const half = Math.ceil(count / 2);
+    picked = shuffle([...focused.slice(0, half), ...rest.slice(0, count - Math.min(half, focused.length))]);
+  } else {
+    picked = shuffle(candidates).slice(0, count);
+  }
+
+  // Early lessons know only a handful of letters, so real words run short:
+  // repeat what there is, and top up with syllables if even that is too little.
+  if (picked.length < count && candidates.length >= 6) {
+    while (picked.length < count) picked.push(candidates[Math.floor(Math.random() * candidates.length)]);
+  } else if (picked.length < count) {
+    picked = shuffle([...picked, ...generateSyllables({ ...lesson, tokens: [] }, count).slice(0, count - picked.length)]);
+  }
+  return picked.join(' ');
 }
 
 /** Builds a fresh practice string for a lesson — random each call so repeats don't get memorized. */

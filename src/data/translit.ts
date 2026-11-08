@@ -16,6 +16,15 @@ export const SAME_LETTER_WORDS = [
   'ustoz', 'imkon', 'mavzu', 'savol', 'avval', 'keling', 'ber', 'bor', 'kel', 'ket', 'tur',
   'markaz', 'kurs', 'test', 'sana', 'sinov', 'ariza', 'telefon', 'internet', 'manzil',
   'kassa', 'plastik', 'karta', 'dastur', 'mutaxassis', 'tanaffus', 'tadbir', 'reklama',
+  // Few letters known yet: the first groups need every real word they can get.
+  'tana', 'nota', 'ot', 'ton', 'ilon', 'oila', 'inson', 'oson', 'soat', 'salat', 'tor', 'it',
+  'orol', 'rost', 'tilla', 'sirt', 'tosh', 'osti', 'ost', 'isit', 'sira', 'ari', 'nor', 'sol',
+  'sanoat', 'lola', 'alla', 'ota', 'sanoq', 'tort', 'sinf', 'sitora',
+  'risola', 'astar', 'tilsiz', 'sariq', 'aniq', 'nima', 'kino', 'mana',
+  'dona', 'dono', 'domla', 'kam', 'kim', 'kul', 'qum', 'muz', 'uzoq', 'undan', 'unda',
+  'mumkin', 'mukammal', 'muallim', 'dunyo', 'dumba', 'dukkak', 'kumush', 'bugun', 'birga',
+  'bozor', 'gap', 'gulzor', 'egar', 'ega', 'ezgu', 'bekat', 'beda', 'biz', 'siz',
+  'paxta', 'pul', 'pista', 'vazir', 'vaqt', 'fikr', 'foiz', 'filial', 'faol', 'favvora',
 ];
 
 /** 2-dars: Қ Ҳ Х Ж Й — the letters whose Latin form is a different letter. */
@@ -35,6 +44,10 @@ export const DIGRAPH_WORDS = [
   'tashkilot', 'ishchi', 'shaxsiy', 'hisobchi', 'uchrashuv', 'chiqish', 'tushlik', 'ochiq',
   'kichik', 'mashq', 'mashina', 'chaqiruv', 'ishonch', 'kechikish', 'ishtirok', 'tashrif',
   'bosh', 'ishla', 'chiqim', 'cheksiz',
+  // НГ
+  'ming', 'keng', 'rang', 'tong', 'yangi', 'dengiz', 'singil', 'ingliz', 'bodring', 'mening',
+  'sening', 'bizning', 'sizning', 'tinglash', 'tingla', 'rangli', 'jangal', 'yengil',
+  'tengdosh', 'kengash', "ko'ngil", 'tenglama', 'sinfning', 'mingta', 'kenglik',
 ];
 
 /** 4-dars: Ў Ғ Ъ — the apostrophe letters. */
@@ -53,6 +66,12 @@ export const IOTATED_WORDS = [
   'yetarli', 'yechim', 'poyezd', 'qayer', 'daryo', 'dunyo', 'xayol', 'kuyov', 'viloyat',
   'familiya', 'tayyor', 'ziyorat', 'yozuv', 'yaqin', 'yakun', 'kompyuter', 'yozildi',
   'yetkazish', 'payvand', 'tayyorlov', 'qiyos', 'nusxa', 'yoqdi',
+  // Ю
+  'yugurish', 'yuk', 'yupqa', 'yumush', 'yurt', 'yutuq', 'yuvish', 'yuksak', 'yumaloq',
+  'yuzlab', 'quyuq', 'suyuq', 'buyuk', 'yulduzcha', 'yurish', 'yutmoq',
+  // Е → ye
+  'yelka', 'yemish', 'yetakchi', 'yetim', 'yetmish', 'yeng', 'qayerda', 'yetib', 'yelim',
+  'yetuk', 'yeyish', 'yerga', 'yetkazdi', 'yetakla', 'yer',
 ];
 
 /** 7-dars: Х against Ҳ and Қ against К — the pairs that are mixed up most. */

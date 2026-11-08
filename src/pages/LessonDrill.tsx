@@ -4,7 +4,7 @@ import { ArrowLeft, RotateCcw, ArrowRight, Trophy, Lightbulb, Languages, EyeOff 
 import { LESSONS, lessonsInTrack } from '../data/lessons';
 import { useLessonDrill } from '../hooks/useLessonDrill';
 import FingerKeyboard from '../components/FingerKeyboard';
-import { LESSON_PASS_ACCURACY } from '../lib/lessonProgress';
+import { LESSON_PASS_ACCURACY, isLessonUnlocked } from '../lib/lessonProgress';
 import { latinToCyrillic } from '../lib/uzScript';
 import { THEMES } from '../data/themes';
 import type { ThemeColor } from '../types';
@@ -79,7 +79,8 @@ export default function LessonDrill({ isDarkMode, themeColor = 'blue' }: { isDar
     return words;
   }, [drill.isFinished, drill.mistakePositions, segments, isTranslit]);
 
-  if (lessonIndex < 0) return <Navigate to="/lessons" replace />;
+  // A typed-in URL must not skip ahead: the course only works in order.
+  if (lessonIndex < 0 || !isLessonUnlocked(lesson.id, trackLessons)) return <Navigate to="/lessons" replace />;
 
   const nextLesson = trackLessons[trackIndex + 1];
   const passed = (drill.result?.accuracy ?? 0) >= LESSON_PASS_ACCURACY;
@@ -131,6 +132,9 @@ export default function LessonDrill({ isDarkMode, themeColor = 'blue' }: { isDar
       </div>
 
       <div className="text-center space-y-1">
+        {lesson.module && (
+          <p className={`text-[10px] font-black uppercase tracking-widest ${t.text}`}>{lesson.module}</p>
+        )}
         <h1 className="text-xl md:text-2xl font-display font-black">{lesson.title}</h1>
         <p className={`text-sm ${muted}`}>{lesson.description}</p>
       </div>
