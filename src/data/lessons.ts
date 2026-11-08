@@ -1,5 +1,10 @@
 import { WORDS, SENTENCES, type Language } from './words';
 import { shuffle } from '../lib/shuffle';
+import { tokenizeLatin, hasReliableCyrillic } from '../lib/uzScript';
+import {
+  SAME_LETTER_WORDS, DIFFERENT_LETTER_WORDS, DIGRAPH_WORDS, APOSTROPHE_WORDS, IOTATED_WORDS,
+  CONFUSABLE_WORDS, ADMIN_WORDS, ADMIN_SENTENCES,
+} from './translit';
 
 export type Finger =
   | 'left-pinky' | 'left-ring' | 'left-middle' | 'left-index'
@@ -54,10 +59,55 @@ export const FINGER_LABELS: Record<Finger, string> = {
   thumb: 'Bosh barmoq',
 };
 
+/**
+ * The two courses on the Lessons page. `translit` teaches people who already type
+ * Uzbek in Cyrillic to write it in Latin; `touch` is classic touch-typing.
+ * Each course unlocks on its own, so finishing one never gates the other.
+ */
+export type LessonTrack = 'translit' | 'touch';
+
+export const TRACKS: { id: LessonTrack; title: string; subtitle: string }[] = [
+  {
+    id: 'translit',
+    title: 'Kirilldan lotinga',
+    subtitle: "Kirillcha yozishga o'rganganlar uchun: har bir kirill harfi lotinda qanday yozilishini va klaviaturaning qaysi tugmasida turishini o'rganing.",
+  },
+  {
+    id: 'touch',
+    title: "Barmoq bilan yozish",
+    subtitle: "Barmoqlaringizni to'g'ri joylashtirib, klaviaturaga qaramasdan yozishni o'rganing.",
+  },
+];
+
 export interface Lesson {
   id: string;
+  track: LessonTrack;
   title: string;
   description: string;
+  /** A practical hint shown in a callout above the drill. */
+  tip?: string;
+  /** Cyrillic → Latin pairs this lesson introduces, shown as a "remember this" card. */
+  letterMap?: { cyr: string; lat: string }[];
+  /**
+   * Latin sounds (as `tokenizeLatin` splits them) this lesson introduces. A
+   * transliteration drill only uses words made of sounds taught so far, and each
+   * word must contain at least one of these new ones.
+   */
+  tokens?: string[];
+  /** Every sound taught up to and including this lesson (computed per track). */
+  allowedTokens?: string[];
+  /** Curated words to drill instead of the general Uzbek word pool. */
+  customWords?: string[];
+  /** Curated sentences to drill. */
+  customSentences?: string[];
+  /** Show each word's Cyrillic spelling above its Latin letters. */
+  cyrillicHint?: boolean;
+  /**
+   * Hide the Latin letters still to be typed: only the Cyrillic word is visible,
+   * and the learner has to recall its Latin spelling. The right letter (and its
+   * key) is revealed only after a mistake.
+   */
+  hideLatin?: boolean;
   /** New keys introduced by this lesson. */
   keys: string[];
   /** This lesson's keys plus every previous lesson's keys. */
@@ -91,9 +141,9 @@ export interface Lesson {
   useSentences?: boolean;
 }
 
-type RawLesson = Omit<Lesson, 'allowedKeys'>;
+type RawLesson = Omit<Lesson, 'allowedKeys' | 'allowedTokens' | 'track'>;
 
-const RAW_LESSONS: RawLesson[] = [
+const TOUCH_LESSONS: RawLesson[] = [
   {
     id: 'home-f-j',
     title: 'Uy qatori: F va J',
@@ -255,12 +305,161 @@ const RAW_LESSONS: RawLesson[] = [
   },
 ];
 
-export const LESSONS: Lesson[] = RAW_LESSONS.reduce<Lesson[]>((acc, lesson) => {
-  const prevAllowed = acc.length ? acc[acc.length - 1].allowedKeys : [];
-  const allowedKeys = Array.from(new Set([...prevAllowed, ...lesson.keys]));
-  acc.push({ ...lesson, allowedKeys });
-  return acc;
-}, []);
+
+/** Sounds that trip up a Cyrillic typist — the "hidden Latin" drills insist on them. */
+const TRICKY_TOKENS = ['q', 'h', 'x', 'j', 'y', 'sh', 'ch', "o'", "g'", "'", 'yo', 'yu', 'ya', 'ye'];
+
+const TRANSLIT_LESSONS: RawLesson[] = [
+  {
+    id: 'kl-same',
+    title: 'Bir xil harflar',
+    description: "Bu harflar kirillda ham, lotinda ham bir xil o'qiladi — faqat klaviaturadagi o'rni boshqa. Har so'z ustida uning kirillchasi turadi.",
+    tip: "Avval klaviaturani lotinga (EN) o'tkazing: Windows'da Alt+Shift yoki Win+Probel, Mac'da Ctrl+Probel. Ekranning pastki o'ng burchagida EN yozuvi chiqishi kerak.",
+    letterMap: [
+      { cyr: 'А', lat: 'a' }, { cyr: 'Б', lat: 'b' }, { cyr: 'В', lat: 'v' }, { cyr: 'Г', lat: 'g' },
+      { cyr: 'Д', lat: 'd' }, { cyr: 'Е / Э', lat: 'e' }, { cyr: 'З', lat: 'z' }, { cyr: 'И', lat: 'i' },
+      { cyr: 'К', lat: 'k' }, { cyr: 'Л', lat: 'l' }, { cyr: 'М', lat: 'm' }, { cyr: 'Н', lat: 'n' },
+      { cyr: 'О', lat: 'o' }, { cyr: 'П', lat: 'p' }, { cyr: 'Р', lat: 'r' }, { cyr: 'С', lat: 's' },
+      { cyr: 'Т', lat: 't' }, { cyr: 'У', lat: 'u' }, { cyr: 'Ф', lat: 'f' },
+    ],
+    keys: [],
+    tokens: ['a', 'b', 'v', 'g', 'd', 'e', 'z', 'i', 'k', 'l', 'm', 'n', 'o', 'p', 'r', 's', 't', 'u', 'f'],
+    customWords: SAME_LETTER_WORDS,
+    cyrillicHint: true,
+  },
+  {
+    id: 'kl-different',
+    title: 'Farqli harflar: Қ Ҳ Х Ж Й',
+    description: "Eng ko'p xato shu yerda: Х — bu X, Ҳ — bu H. Қ — Q, Ж — J, Й — Y.",
+    tip: "Eslab qoling: kirilldagi Х lotinda X bo'ladi (xat, xona), H esa faqat Ҳ uchun (hafta, hisob).",
+    letterMap: [
+      { cyr: 'Қ', lat: 'q' }, { cyr: 'Ҳ', lat: 'h' }, { cyr: 'Х', lat: 'x' },
+      { cyr: 'Ж', lat: 'j' }, { cyr: 'Й', lat: 'y' },
+    ],
+    keys: [],
+    tokens: ['q', 'h', 'x', 'j', 'y'],
+    customWords: DIFFERENT_LETTER_WORDS,
+    cyrillicHint: true,
+  },
+  {
+    id: 'kl-digraphs',
+    title: 'Ikki harfli tovushlar: Ш Ч',
+    description: 'Bitta kirill harfi — ikkita lotin harfi. Ш = s + h, Ч = c + h. НГ esa o\'zgarmaydi: ng.',
+    tip: "Ikki harfni bitta harakatdek, uzilishsiz yozishga harakat qiling: sh, ch.",
+    letterMap: [{ cyr: 'Ш', lat: 'sh' }, { cyr: 'Ч', lat: 'ch' }, { cyr: 'НГ', lat: 'ng' }],
+    keys: [],
+    tokens: ['sh', 'ch'],
+    customWords: DIGRAPH_WORDS,
+    cyrillicHint: true,
+  },
+  {
+    id: 'kl-apostrophe',
+    title: "Apostrofli harflar: Ў Ғ Ъ",
+    description: "Ў va Ғ harf + apostrof bilan yoziladi: o', g'. Ъ (tutuq belgisi) esa faqat apostrof: маълумот → ma'lumot.",
+    tip: "Apostrof ( ' ) tugmasi L dan keyin ikkinchi — kirill klaviaturada bu Э tugmasi. Uni o'ng jimjiloq bilan bosing.",
+    letterMap: [{ cyr: 'Ў', lat: "o'" }, { cyr: 'Ғ', lat: "g'" }, { cyr: 'Ъ', lat: "'" }],
+    keys: [],
+    tokens: ["o'", "g'", "'"],
+    customWords: APOSTROPHE_WORDS,
+    cyrillicHint: true,
+  },
+  {
+    id: 'kl-iotated',
+    title: 'Ё Ю Я Е: y + unli',
+    description: "Bu harflar lotinda ikki harf bilan yoziladi: ё → yo, ю → yu, я → ya. Е so'z boshida va unlidan keyin ye bo'ladi: ер → yer.",
+    tip: "Ц harfi lotinda s yoki ts bo'ladi: цирк → sirk, лицей → litsey. Ь (yumshatish belgisi) umuman yozilmaydi.",
+    letterMap: [
+      { cyr: 'Ё', lat: 'yo' }, { cyr: 'Ю', lat: 'yu' }, { cyr: 'Я', lat: 'ya' },
+      { cyr: 'Е', lat: 'ye' }, { cyr: 'Ц', lat: 's / ts' }, { cyr: 'Ь', lat: '—' },
+    ],
+    keys: [],
+    tokens: ['yo', 'yu', 'ya', 'ye'],
+    customWords: IOTATED_WORDS,
+    cyrillicHint: true,
+  },
+  {
+    id: 'kl-words',
+    title: "Barcha harflar: so'zlar",
+    description: "Endi barcha harflar aralash. Kirillcha so'zga qarab, uni lotinda yozing.",
+    keys: [],
+    tokens: [],
+    cyrillicHint: true,
+  },
+  {
+    id: 'kl-confusable',
+    title: 'X yoki H? Q yoki K?',
+    description: "Sinov: lotin yozuvi yashirin, faqat kirillcha so'z ko'rinadi. Xato qilsangiz, to'g'ri harf va tugma ko'rsatiladi.",
+    tip: 'Х → x, Ҳ → h, Қ → q, К → k. Shoshmang — avval o\'ylang, keyin bosing.',
+    letterMap: [{ cyr: 'Х', lat: 'x' }, { cyr: 'Ҳ', lat: 'h' }, { cyr: 'Қ', lat: 'q' }, { cyr: 'К', lat: 'k' }],
+    keys: [],
+    tokens: [],
+    customWords: CONFUSABLE_WORDS,
+    cyrillicHint: true,
+    hideLatin: true,
+    wordCount: 18,
+  },
+  {
+    id: 'kl-admin-words',
+    title: "Ish so'zlari",
+    description: "O'quv markazida har kuni yoziladigan so'zlar: o'quvchi, to'lov, shartnoma, davomat, hisobot.",
+    keys: [],
+    tokens: [],
+    customWords: ADMIN_WORDS,
+    cyrillicHint: true,
+  },
+  {
+    id: 'kl-hidden-words',
+    title: "Yashirin lotin: so'zlar",
+    description: "Faqat kirillcha so'z ko'rinadi — lotinchasini o'zingiz eslab yozing. Har bir so'zda kamida bitta qiyin harf bor.",
+    keys: [],
+    tokens: [],
+    cyrillicHint: true,
+    hideLatin: true,
+    wordFilter: word => tokenizeLatin(word).some(t => TRICKY_TOKENS.includes(t.lat)),
+    wordCount: 18,
+  },
+  {
+    id: 'kl-messages',
+    title: 'Xabarlar yozish',
+    description: "Ota-onalar va o'quvchilarga yuboriladigan haqiqiy xabarlar: bosh harf, vergul va nuqta bilan.",
+    keys: [],
+    tokens: [],
+    customSentences: ADMIN_SENTENCES,
+    cyrillicHint: true,
+  },
+  {
+    id: 'kl-final',
+    title: 'Yakuniy sinov: xabarlar',
+    description: "Faqat kirillcha matn ko'rinadi — butun xabarni lotinda yozing. Buni 90% aniqlik bilan o'tsangiz, lotinda bemalol yoza olasiz!",
+    keys: [],
+    tokens: [],
+    customSentences: [...ADMIN_SENTENCES, ...SENTENCES.uz],
+    cyrillicHint: true,
+    hideLatin: true,
+  },
+];
+
+/** Rolls each lesson's newly taught keys / sounds forward into its successors, within one track. */
+function buildTrack(track: LessonTrack, raw: RawLesson[]): Lesson[] {
+  return raw.reduce<Lesson[]>((acc, lesson) => {
+    const prev = acc[acc.length - 1];
+    const allowedKeys = Array.from(new Set([...(prev?.allowedKeys ?? []), ...lesson.keys]));
+    const allowedTokens = Array.from(new Set([...(prev?.allowedTokens ?? []), ...(lesson.tokens ?? [])]));
+    acc.push({ ...lesson, track, allowedKeys, allowedTokens });
+    return acc;
+  }, []);
+}
+
+/** Every lesson, Cyrillic → Latin course first. */
+export const LESSONS: Lesson[] = [
+  ...buildTrack('translit', TRANSLIT_LESSONS),
+  ...buildTrack('touch', TOUCH_LESSONS),
+];
+
+/** The lessons of one course, in order. */
+export function lessonsInTrack(track: LessonTrack): Lesson[] {
+  return LESSONS.filter(l => l.track === track);
+}
 
 function randomChar(pool: string[], newKeys: string[]): string {
   const useNew = newKeys.length > 0 && Math.random() < 0.55;
@@ -275,8 +474,48 @@ function randomChar(pool: string[], newKeys: string[]): string {
  */
 const TYPEABLE_WORD = /^[a-z']+$/;
 
+/**
+ * Words a transliteration drill may draw on when a lesson names no list of its
+ * own: the app's Uzbek words plus every curated list, minus words whose Cyrillic
+ * hint could be wrong.
+ */
+const TRANSLIT_POOL = Array.from(new Set([
+  ...WORDS.uz.easy, ...WORDS.uz.medium, ...WORDS.uz.hard,
+  ...SAME_LETTER_WORDS, ...DIFFERENT_LETTER_WORDS, ...DIGRAPH_WORDS, ...APOSTROPHE_WORDS,
+  ...IOTATED_WORDS, ...ADMIN_WORDS,
+])).filter(w => TYPEABLE_WORD.test(w) && hasReliableCyrillic(w));
+
+/** Whether a word uses only sounds taught so far, and at least one of this lesson's new ones. */
+function fitsTranslitLesson(word: string, lesson: Lesson): boolean {
+  const allowed = new Set(lesson.allowedTokens ?? []);
+  const fresh = lesson.tokens ?? [];
+  const tokens = tokenizeLatin(word).map(t => t.lat);
+  if (!tokens.every(t => allowed.has(t))) return false;
+  if (fresh.length > 0 && !tokens.some(t => fresh.includes(t))) return false;
+  return lesson.wordFilter ? lesson.wordFilter(word) : true;
+}
+
+function generateTranslitText(lesson: Lesson): string {
+  if (lesson.customSentences) {
+    const picked: string[] = [];
+    let length = 0;
+    // About 120 characters: two or three messages, long enough to mean something.
+    for (const sentence of shuffle(lesson.customSentences)) {
+      if (length >= 120) break;
+      picked.push(sentence);
+      length += sentence.length + 1;
+    }
+    return picked.join(' ');
+  }
+  const source = (lesson.customWords ?? TRANSLIT_POOL).filter(w => TYPEABLE_WORD.test(w) && hasReliableCyrillic(w));
+  const candidates = source.filter(w => fitsTranslitLesson(w, lesson));
+  return shuffle(candidates).slice(0, lesson.wordCount ?? 20).join(' ');
+}
+
 /** Builds a fresh practice string for a lesson — random each call so repeats don't get memorized. */
 export function generateDrillText(lesson: Lesson): string {
+  if (lesson.track === 'translit') return generateTranslitText(lesson);
+
   if (lesson.units) {
     const units = lesson.units;
     const chunks: string[] = [];
@@ -319,7 +558,7 @@ export function generateDrillText(lesson: Lesson): string {
   }
 
   const pool = lesson.poolKeys
-    ?? (lesson.allowedKeys.length > 0 ? lesson.allowedKeys : LESSONS[LESSONS.length - 1].allowedKeys);
+    ?? (lesson.allowedKeys.length > 0 ? lesson.allowedKeys : lessonsInTrack('touch').slice(-1)[0].allowedKeys);
   const chunks: string[] = [];
   for (let i = 0; i < 40; i++) {
     const len = 2 + Math.floor(Math.random() * 3);

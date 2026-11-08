@@ -1,3 +1,4 @@
+import { latinToCyrillic } from '../lib/uzScript';
 import type { Difficulty } from '../types';
 
 export type Language = 'uz' | 'en' | 'ru';
@@ -136,18 +137,13 @@ export const SENTENCES: Record<Language, string[]> = {
   ],
 };
 
-const latinToCyrillicMap: Record<string, string> = {
-  'a': 'а', 'b': 'б', 'v': 'в', 'g': 'г', 'd': 'д', 'e': 'е', 'j': 'ж', 'z': 'з', 'i': 'и', 'y': 'й',
-  'k': 'к', 'l': 'л', 'm': 'м', 'n': 'н', 'o': 'о', 'p': 'п', 'r': 'р', 's': 'с', 't': 'т', 'u': 'у',
-  'f': 'ф', 'x': 'х', 'h': 'ҳ', 'q': 'қ',
-};
-
+/**
+ * Uzbek Latin → Cyrillic. Delegates to the shared converter, which also gets
+ * Э (eshik → эшик), Ё/Е (yoz → ёз, yer → ер) and Ъ (ma'lumot → маълумот) right —
+ * the old letter-swap table turned those into ешик, йоз, йер and мa'лумот.
+ */
 export function toCyrillic(text: string): string {
-  let result = text.toLowerCase();
-  result = result.replace(/sh/g, 'ш').replace(/ch/g, 'ч').replace(/ts/g, 'ц')
-    .replace(/yu/g, 'ю').replace(/ya/g, 'я').replace(/o'/g, 'ў').replace(/g'/g, 'ғ')
-    .replace(/ng/g, 'нг');
-  return result.split('').map(char => latinToCyrillicMap[char] || char).join('');
+  return latinToCyrillic(text);
 }
 
 // Kunlik challenge uchun
