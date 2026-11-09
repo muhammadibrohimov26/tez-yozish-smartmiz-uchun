@@ -1,5 +1,6 @@
 import React, { useLayoutEffect, useRef, useState } from 'react';
 import { FINGER_MAP, FINGER_LABELS, resolveKey, type Finger } from '../data/lessons';
+import { CYRILLIC_KEY_LABELS } from '../lib/uzScript';
 
 const NUMBER_ROW = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-'];
 const ROWS = [
@@ -39,7 +40,17 @@ const FINGERTIP_Y = 51; // home row
 const THUMBTIP_Y = 92; // spacebar
 const PALM_Y = 103;
 
-export default function FingerKeyboard({ activeChar, isDarkMode }: { activeChar?: string; isDarkMode: boolean }) {
+interface FingerKeyboardProps {
+  activeChar?: string;
+  isDarkMode: boolean;
+  /**
+   * Print the Russian ЙЦУКЕН letter in each key's corner, as on a real dual-legend
+   * keyboard, so a Cyrillic typist sees that Latin "a" sits where their "ф" was.
+   */
+  showCyrillicLabels?: boolean;
+}
+
+export default function FingerKeyboard({ activeChar, isDarkMode, showCyrillicLabels = false }: FingerKeyboardProps) {
   // Punctuation like ? and ! also needs Shift, which the character itself does not
   // reveal — resolveKey maps any character back to the key actually pressed.
   const resolved = activeChar !== undefined ? resolveKey(activeChar) : undefined;
@@ -72,7 +83,7 @@ export default function FingerKeyboard({ activeChar, isDarkMode }: { activeChar?
   }, []);
 
   const keyClass = (isActive: boolean) =>
-    `flex-1 aspect-square rounded-lg flex items-center justify-center text-xs sm:text-sm font-bold transition-all ${
+    `relative flex-1 aspect-square rounded-lg flex items-center justify-center text-xs sm:text-sm font-bold transition-all ${
       isActive
         ? 'scale-110 text-white'
         : (isDarkMode ? 'bg-[#0a0a0f] text-white/40' : 'bg-white text-gray-500 shadow-sm')
@@ -83,9 +94,17 @@ export default function FingerKeyboard({ activeChar, isDarkMode }: { activeChar?
 
   const renderKey = (char: string) => {
     const isActive = active === char;
+    const cyrillic = showCyrillicLabels ? CYRILLIC_KEY_LABELS[char] : undefined;
     return (
       <div key={char} className={keyClass(isActive)} style={keyStyle(isActive)}>
         {char}
+        {cyrillic && (
+          <span className={`absolute top-0.5 right-1 text-[8px] sm:text-[10px] font-medium leading-none ${
+            isActive ? 'text-white/70' : (isDarkMode ? 'text-white/20' : 'text-gray-300')
+          }`}>
+            {cyrillic}
+          </span>
+        )}
       </div>
     );
   };
@@ -153,6 +172,12 @@ export default function FingerKeyboard({ activeChar, isDarkMode }: { activeChar?
           </div>
         </div>
       </div>
+
+      {showCyrillicLabels && (
+        <p className={`text-center text-[10px] mt-3 ${isDarkMode ? 'text-white/30' : 'text-gray-400'}`}>
+          Burchakdagi kichik harf — shu tugmaning kirill klaviaturadagi harfi
+        </p>
+      )}
 
       <div className="flex justify-center items-center gap-2 mt-4 h-7">
         {needsShift && (
