@@ -4,7 +4,8 @@ import { ArrowLeft, RotateCcw, ArrowRight, Trophy, Lightbulb, Languages, EyeOff 
 import { LESSONS, lessonsInTrack } from '../data/lessons';
 import { useLessonDrill } from '../hooks/useLessonDrill';
 import FingerKeyboard from '../components/FingerKeyboard';
-import { LESSON_PASS_ACCURACY, isLessonUnlocked } from '../lib/lessonProgress';
+import { LESSON_PASS_ACCURACY, isLessonUnlocked, useLessonProgress } from '../lib/lessonProgress';
+import { useAuth } from '../hooks/useAuth';
 import { latinToCyrillic } from '../lib/uzScript';
 import { THEMES } from '../data/themes';
 import type { ThemeColor } from '../types';
@@ -42,6 +43,8 @@ export default function LessonDrill({ isDarkMode, themeColor = 'blue' }: { isDar
   const trackIndex = trackLessons.findIndex(l => l.id === lesson.id);
   const isTranslit = lesson.track === 'translit';
 
+  const { user, profile } = useAuth();
+  const { progress, loaded } = useLessonProgress(user, profile?.displayName);
   const drill = useLessonDrill(lesson);
   const [flash, setFlash] = useState(false);
   const currentCharRef = useRef<HTMLSpanElement>(null);
@@ -79,8 +82,17 @@ export default function LessonDrill({ isDarkMode, themeColor = 'blue' }: { isDar
     return words;
   }, [drill.isFinished, drill.mistakePositions, segments, isTranslit]);
 
-  // A typed-in URL must not skip ahead: the course only works in order.
-  if (lessonIndex < 0 || !isLessonUnlocked(lesson.id, trackLessons)) return <Navigate to="/lessons" replace />;
+  if (lessonIndex < 0) return <Navigate to="/lessons" replace />;
+  if (!loaded) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="w-8 h-8 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin" />
+      </div>
+    );
+  }
+  // A typed-in URL must not skip ahead: the course only works in order. A lesson
+  // just finished stays open even if its successor's check would now differ.
+  if (!drill.isFinished && !isLessonUnlocked(lesson.id, trackLessons, progress)) return <Navigate to="/lessons" replace />;
 
   const nextLesson = trackLessons[trackIndex + 1];
   const passed = (drill.result?.accuracy ?? 0) >= LESSON_PASS_ACCURACY;

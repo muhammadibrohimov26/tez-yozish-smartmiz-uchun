@@ -1,5 +1,5 @@
 import React, { Suspense, lazy, useEffect, useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import Layout from './components/Layout';
 import { getTheme, applyTheme } from './data/themes';
@@ -11,6 +11,7 @@ const Home = lazy(() => import('./pages/Home'));
 const Login = lazy(() => import('./pages/Login'));
 const Lessons = lazy(() => import('./pages/Lessons'));
 const LessonDrill = lazy(() => import('./pages/LessonDrill'));
+const LessonStats = lazy(() => import('./pages/LessonStats'));
 const Groups = lazy(() => import('./pages/Groups'));
 const GroupDetail = lazy(() => import('./pages/GroupDetail'));
 const Leaderboard = lazy(() => import('./pages/Leaderboard'));
@@ -28,8 +29,10 @@ function Spinner() {
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
+  const location = useLocation();
   if (loading || user === undefined) return <Spinner />;
-  if (!user) return <Navigate to="/login" replace />;
+  // Remember where the visitor was headed, so signing in brings them back there.
+  if (!user) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   return <>{children}</>;
 }
 
@@ -48,8 +51,10 @@ function AppRoutes() {
         <Routes>
           <Route path="/" element={<Home isDarkMode={isDarkMode} themeColor={themeColor} />} />
           <Route path="/login" element={<Login isDarkMode={isDarkMode} themeColor={themeColor} />} />
-          <Route path="/lessons" element={<Lessons isDarkMode={isDarkMode} themeColor={themeColor} />} />
-          <Route path="/lessons/:lessonId" element={<LessonDrill isDarkMode={isDarkMode} themeColor={themeColor} />} />
+          {/* Lessons need an account: progress is saved per user and shown in the statistics. */}
+          <Route path="/lessons" element={<ProtectedRoute><Lessons isDarkMode={isDarkMode} themeColor={themeColor} /></ProtectedRoute>} />
+          <Route path="/lessons/stats" element={<ProtectedRoute><LessonStats isDarkMode={isDarkMode} themeColor={themeColor} /></ProtectedRoute>} />
+          <Route path="/lessons/:lessonId" element={<ProtectedRoute><LessonDrill isDarkMode={isDarkMode} themeColor={themeColor} /></ProtectedRoute>} />
           <Route path="/leaderboard" element={<Leaderboard isDarkMode={isDarkMode} themeColor={themeColor} />} />
           <Route path="/groups" element={<ProtectedRoute><Groups isDarkMode={isDarkMode} /></ProtectedRoute>} />
           <Route path="/groups/:id" element={<ProtectedRoute><GroupDetail isDarkMode={isDarkMode} /></ProtectedRoute>} />

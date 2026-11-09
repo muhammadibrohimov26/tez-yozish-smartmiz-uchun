@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Lock, CheckCircle2, GraduationCap, Languages, Keyboard, ChevronDown, EyeOff, PlayCircle } from 'lucide-react';
+import { Lock, CheckCircle2, GraduationCap, Languages, Keyboard, ChevronDown, EyeOff, PlayCircle, BarChart3 } from 'lucide-react';
+import { useAuth } from '../hooks/useAuth';
 import { TRACKS, lessonsInTrack, type Lesson, type LessonTrack } from '../data/lessons';
-import { getLessonProgress, isLessonUnlocked, LESSON_PASS_ACCURACY, type LessonResult } from '../lib/lessonProgress';
+import { useLessonProgress, isLessonUnlocked, LESSON_PASS_ACCURACY, type LessonResult } from '../lib/lessonProgress';
 import { ALPHABET } from '../lib/uzScript';
 import { THEMES } from '../data/themes';
 import type { ThemeColor } from '../types';
@@ -35,7 +36,8 @@ const isPassed = (result?: LessonResult) => Boolean(result && result.bestAccurac
 export default function Lessons({ isDarkMode, themeColor = 'blue' }: { isDarkMode: boolean; themeColor?: ThemeColor }) {
   const navigate = useNavigate();
   const t = THEMES[themeColor];
-  const progress = getLessonProgress();
+  const { user, profile } = useAuth();
+  const { progress, loaded } = useLessonProgress(user, profile?.displayName);
   const [tab, setTab] = useState<LessonTrack>(readTab);
   const [showAlphabet, setShowAlphabet] = useState(false);
 
@@ -46,6 +48,13 @@ export default function Lessons({ isDarkMode, themeColor = 'blue' }: { isDarkMod
   // Where the learner is: the first lesson not yet passed. Its module starts open.
   const current = lessons.find(l => !isPassed(progress[l.id]));
   const [openModules, setOpenModules] = useState<Set<string | undefined>>(() => new Set([current?.module]));
+
+  // Progress arrives from Firestore after the first render: open the module the
+  // learner is actually on once it does.
+  useEffect(() => {
+    if (loaded) setOpenModules(new Set([current?.module]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loaded]);
 
   const muted = isDarkMode ? 'text-white/40' : 'text-gray-500';
   const faint = isDarkMode ? 'text-white/30' : 'text-gray-400';
@@ -67,6 +76,14 @@ export default function Lessons({ isDarkMode, themeColor = 'blue' }: { isDarkMod
 
   const Icon = TRACK_ICONS[tab];
 
+  if (!loaded) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="w-8 h-8 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <div className="relative z-10 max-w-6xl mx-auto p-4 md:p-12 space-y-8">
       <div className="text-center space-y-2">
@@ -77,6 +94,12 @@ export default function Lessons({ isDarkMode, themeColor = 'blue' }: { isDarkMod
         <p className={`text-xs ${faint}`}>
           Keyingi dars ochilishi uchun darsni kamida {LESSON_PASS_ACCURACY}% aniqlik bilan tugating
         </p>
+        <button
+          onClick={() => navigate('/lessons/stats')}
+          className={`inline-flex items-center gap-2 mt-2 px-4 py-2 rounded-xl text-xs font-bold border transition-all ${isDarkMode ? 'border-white/10 hover:bg-white/5' : 'border-gray-200 bg-white hover:bg-gray-50 shadow-sm'}`}
+        >
+          <BarChart3 className={`w-4 h-4 ${t.text}`} /> Statistika: kim qancha o'rgandi
+        </button>
       </div>
 
       {/* Course tabs */}
@@ -199,7 +222,7 @@ export default function Lessons({ isDarkMode, themeColor = 'blue' }: { isDarkMod
                 <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 ${group.title ? 'px-4 pb-4' : ''}`}>
                   {group.lessons.map(lesson => {
                     const idx = lessons.indexOf(lesson);
-                    const unlocked = isLessonUnlocked(lesson.id, lessons);
+                    const unlocked = isLessonUnlocked(lesson.id, lessons, progress);
                     const result = progress[lesson.id];
                     const passed = isPassed(result);
                     const isCurrent = lesson === current;

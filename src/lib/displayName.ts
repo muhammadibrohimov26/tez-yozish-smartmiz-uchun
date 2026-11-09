@@ -17,6 +17,10 @@ import { db } from '../firebase';
 export async function updateDisplayName(uid: string, displayName: string): Promise<void> {
   await updateDoc(doc(db, 'typingUsers', uid), { displayName });
 
+  // The lesson statistics show this name too. Best effort: the document only
+  // exists once the user has finished a lesson.
+  await updateDoc(doc(db, 'lessonProgress', uid), { displayName }).catch(() => {});
+
   const groupsSnap = await getDocs(
     query(collection(db, 'groups'), where('memberIds', 'array-contains', uid)),
   );

@@ -1,14 +1,17 @@
 import React from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 export default function Login({ isDarkMode, themeColor }: { isDarkMode: boolean; themeColor?: string }) {
   const { loginWithGoogle, user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  // Set by ProtectedRoute: the page the visitor tried to open before signing in.
+  const from = (location.state as { from?: string } | null)?.from;
 
   React.useEffect(() => {
-    if (user) navigate('/');
-  }, [user, navigate]);
+    if (user) navigate(from && from.startsWith('/') ? from : '/', { replace: true });
+  }, [user, navigate, from]);
 
   return (
     <div className="max-w-md mx-auto px-4 py-20">
@@ -20,6 +23,12 @@ export default function Login({ isDarkMode, themeColor }: { isDarkMode: boolean;
         <p className={`text-sm mb-8 ${isDarkMode ? 'opacity-40' : 'text-gray-500'}`}>
           Tez yozish platformasiga kirish
         </p>
+
+        {from?.startsWith('/lessons') && (
+          <div className="rounded-2xl px-4 py-3 mb-6 text-sm font-bold bg-amber-500/10 text-amber-500">
+            Darslarga kirish uchun akkaunt kerak — natijalaringiz saqlanadi va statistikada ko'rinadi.
+          </div>
+        )}
 
         <div className={`rounded-2xl border p-4 mb-8 text-left space-y-3 ${isDarkMode ? 'border-white/5 bg-white/[0.03]' : 'border-gray-100 bg-gray-50'}`}>
           {[
